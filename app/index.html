@@ -2227,6 +2227,7 @@
              pendente, pra que as materias terminem juntas na data alvo (Metas) - ver
              renderCicloRitmoAlvo/pesoSugerido/recalcularPesosCiclo. -->
         <div id="cicloRitmoAlvo"></div>
+        <div id="cicloExcedenteWrap"></div>
       </div>
       <details class="card recolhivel">
         <summary><h2>Sequência de Estudos</h2><span class="marcador" aria-hidden="true"></span></summary>
@@ -4176,6 +4177,37 @@ function cicloMetaTotalSegundos(){
   const c = ensureCicloDefaults();
   if(!c) return 0;
   return SUBJECTS.reduce((sum,s,si)=> sum+cicloMetaSegundos(si), 0);
+}
+// ago/2026 (bug reportado pelo Bruno, "as roscas não batem com a Sequência de Estudos"):
+// cicloEstudadoTotalSegundos() soma o estudado de cada matéria SEM limite — então uma matéria
+// que já passou da própria meta da rodada "empresta" esse excedente pro total geral, fazendo
+// metaTotal-estudadoTotal (usado no texto da rosca "Restante" e no card "Progresso") ficar
+// MENOR do que a soma do que realmente falta em cada matéria (que é como a Sequência de
+// Estudos e as fatias da própria rosca calculam, matéria por matéria, sem deixar ninguém
+// "dever negativo"). As funções abaixo dão um nome pra esse excedente e uma soma "restante"
+// coerente com o resto do app — ver buildCicloDonutRestanteHtml e renderPlanejamento.
+function cicloRestanteSegundos(si){
+  return Math.max(0, cicloMetaSegundos(si)-cicloEstudadoSegundos(si));
+}
+function cicloRestanteTotalSegundos(){
+  return SUBJECTS.reduce((sum,s,si)=> sum+cicloRestanteSegundos(si), 0);
+}
+// Tempo estudado ALÉM da meta da rodada de uma matéria ("fora do planejado do ciclo", pedido
+// do Bruno): continua contando normalmente no tempo total estudado da matéria/geral e no tempo
+// total de questões (essas métricas somam sessões direto, sem nunca ter passado pela meta do
+// ciclo — ver tempoTotalTeoria/tempoTotalQuestoes) - só não deve inflar o progresso/restante
+// do Ciclo, que é sobre cumprir a meta da rodada, não sobre o total estudado da matéria.
+function cicloExcedenteSegundos(si){
+  return Math.max(0, cicloEstudadoSegundos(si)-cicloMetaSegundos(si));
+}
+function cicloExcedenteTotalSegundos(){
+  return SUBJECTS.reduce((sum,s,si)=> sum+cicloExcedenteSegundos(si), 0);
+}
+// "Estudado dentro do planejado" - o que conta pro Progresso do Ciclo: o estudado de cada
+// matéria, nunca contando mais do que a própria meta dela (o excedente vira
+// cicloExcedenteSegundos, mostrado à parte - ver renderCicloExcedente).
+function cicloEstudadoDentroPlanoTotalSegundos(){
+  return SUBJECTS.reduce((sum,s,si)=> sum+Math.min(cicloEstudadoSegundos(si), cicloMetaSegundos(si)), 0);
 }
 /* ===================== HISTÓRICO DE CICLOS =====================
    Leva de melhorias da tela do Ciclo (ago/2026). Toda vez que um ciclo fecha — automaticamente
@@ -9841,7 +9873,7 @@ function buildCicloDonutHtml(centerText){
 // visualmente o que ja foi "consumido" do plano da semana. Materia que ja bateu a meta some
 // da rosca (falta=0), igual uma matéria com peso zero some da rosca de total.
 function buildCicloDonutRestanteHtml(centerText){
-  const linhas = SUBJECTS.map((s,si)=>({ si, falta: Math.max(0, cicloMetaSegundos(si)-cicloEstudadoSegundos(si)) }))
+  const linhas = SUBJECTS.map((s,si)=>({ si, falta: cicloRestanteSegundos(si) }))
     .filter(x=> getCicloPeso(x.si)>0 && x.falta>0);
   if(linhas.length===0) return `<div class="empty">Nenhuma matéria com tempo restante — ciclo em dia.</div>`;
   const totalFalta = linhas.reduce((s,x)=>s+x.falta,0);
@@ -9957,6 +9989,24 @@ function renderCicloRitmoAlvo(){
     ${comparacaoHtml}
   </div>`;
 }
+// "Estudado fora do planejado" (ago/2026, pedido do Bruno): quando uma matéria já passou da
+// própria meta da rodada, esse excedente continua contando no tempo total estudado dela e no
+// tempo total de questões respondidas (essas métricas somam as sessões direto, nunca passam
+// pela meta do ciclo) - só não conta pro Progresso/Restante do Ciclo, que são sobre cumprir a
+// meta da rodada. Esse bloco só existe pra deixar esse excedente visível, em vez de ele
+// simplesmente sumir da tela - ver cicloExcedenteSegundos/cicloExcedenteTotalSegundos.
+function renderCicloExcedente(){
+  const wrap = document.getElementById('cicloExcedenteWrap');
+  if(!wrap) return;
+  const porMateria = SUBJECTS.map((s,si)=>({si, seg: cicloExcedenteSegundos(si)})).filter(x=>x.seg>0);
+  if(porMateria.length===0){ wrap.innerHTML = ''; return; }
+  const total = porMateria.reduce((s,x)=>s+x.seg,0);
+  const nomes = porMateria.map(x=>SUBJECTS[x.si].name).join(', ');
+  wrap.innerHTML = `<div class="meta-alvo-block">
+    <div class="lbl">Estudado fora do planejado</div>
+    <div class="sub">+${fmtHorasMin(total)} além da meta desta rodada em ${nomes}. Esse tempo já contou no seu tempo total estudado e nas questões respondidas — só não entra no Progresso nem no Restante do ciclo.</div>
+  </div>`;
+}
 // Linha do tempo de ciclos fechados (mais recente primeiro). Cada marco é clicável e
 // expande pra mostrar os detalhes daquele fechamento (ver registrarHistoricoCiclo).
 let cicloHistoricoAbertoId = null;
@@ -10011,19 +10061,24 @@ function renderPlanejamento(){
   const c = ensureCicloDefaults();
 
   document.getElementById('cicloStatCompletos').textContent = c.ciclosCompletos;
-  const estudadoTotal = cicloEstudadoTotalSegundos();
+  // ago/2026: "Progresso" usa o estudado DENTRO do planejado de cada matéria (nunca mais que a
+  // própria meta dela) - o que passar da meta vira "excedente" (cicloExcedenteTotalSegundos,
+  // ver renderCicloExcedente) e não infla essa barra nem o texto da rosca "Restante" abaixo.
+  const estudadoDentroPlano = cicloEstudadoDentroPlanoTotalSegundos();
   const metaTotal = cicloMetaTotalSegundos();
-  const pctTotal = metaTotal? Math.min(100, Math.round(estudadoTotal/metaTotal*100)) : 0;
-  document.getElementById('cicloStatProgressoTxt').textContent = fmtDuracao(estudadoTotal)+' | '+fmtHorasMin(metaTotal);
+  const restanteTotal = cicloRestanteTotalSegundos();
+  const pctTotal = metaTotal? Math.min(100, Math.round(estudadoDentroPlano/metaTotal*100)) : 0;
+  document.getElementById('cicloStatProgressoTxt').textContent = fmtDuracao(estudadoDentroPlano)+' | '+fmtHorasMin(metaTotal);
   document.getElementById('cicloStatProgressoBar').style.width = pctTotal+'%';
 
   document.getElementById('cicloDonutWrap').innerHTML = buildCicloDonutHtml(fmtHorasMin(metaTotal));
-  document.getElementById('cicloDonutRestanteWrap').innerHTML = buildCicloDonutRestanteHtml(fmtHorasMin(Math.max(0, metaTotal-estudadoTotal)));
+  document.getElementById('cicloDonutRestanteWrap').innerHTML = buildCicloDonutRestanteHtml(fmtHorasMin(restanteTotal));
   document.getElementById('cicloLegend').innerHTML = c.ordem.filter(si=>getCicloPeso(si)>0).map(si=>`<i style="background:${subjectColor(si)}" title="${SUBJECTS[si].name}"></i>`).join('');
 
   renderCicloSequencia();
   renderCicloAvisoAjuste();
   renderCicloRitmoAlvo();
+  renderCicloExcedente();
   renderCicloHistorico();
   renderCalendario();
 }
