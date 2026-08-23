@@ -9998,14 +9998,31 @@ function renderCicloRitmoAlvo(){
 function renderCicloExcedente(){
   const wrap = document.getElementById('cicloExcedenteWrap');
   if(!wrap) return;
-  const porMateria = SUBJECTS.map((s,si)=>({si, seg: cicloExcedenteSegundos(si)})).filter(x=>x.seg>0);
+  const porMateria = SUBJECTS.map((s,si)=>({si, seg: cicloExcedenteSegundos(si)}))
+    .filter(x=>x.seg>0)
+    .sort((a,b)=> b.seg-a.seg);
   if(porMateria.length===0){ wrap.innerHTML = ''; return; }
   const total = porMateria.reduce((s,x)=>s+x.seg,0);
-  const nomes = porMateria.map(x=>SUBJECTS[x.si].name).join(', ');
+  // Lista com o MESMO estilo de linha da Sequência de Estudos (.ciclo-seq-row) - pedido do
+  // Bruno: o detalhe por matéria do que foi estudado fora do planejado, não só uma frase
+  // com os nomes. Clicável igual a Sequência (abre a matéria), sem barra/pct (não é uma
+  // meta a bater, é o excedente por cima dela).
   wrap.innerHTML = `<div class="meta-alvo-block">
     <div class="lbl">Estudado fora do planejado</div>
-    <div class="sub">+${fmtHorasMin(total)} além da meta desta rodada em ${nomes}. Esse tempo já contou no seu tempo total estudado e nas questões respondidas — só não entra no Progresso nem no Restante do ciclo.</div>
+    <div class="sub">+${fmtHorasMin(total)} além da meta desta rodada. Esse tempo já contou no seu tempo total estudado e nas questões respondidas — só não entra no Progresso nem no Restante do ciclo.</div>
+    <div class="ciclo-seq-lista" style="margin-top:8px;">
+      ${porMateria.map(x=>`<div class="ciclo-seq-row" style="border-left-color:${subjectColor(x.si)}" data-si="${x.si}">
+        <div class="info">
+          <b>${SUBJECTS[x.si].name}</b>
+          <small>+${fmtDuracao(x.seg)} além da meta desta rodada</small>
+        </div>
+        <div class="chev">›</div>
+      </div>`).join('')}
+    </div>
   </div>`;
+  wrap.querySelectorAll('.ciclo-seq-row').forEach(row=>{
+    row.addEventListener('click', ()=> openSubjectTab(parseInt(row.dataset.si,10)));
+  });
 }
 // Linha do tempo de ciclos fechados (mais recente primeiro). Cada marco é clicável e
 // expande pra mostrar os detalhes daquele fechamento (ver registrarHistoricoCiclo).
