@@ -2227,7 +2227,6 @@
              pendente, pra que as materias terminem juntas na data alvo (Metas) - ver
              renderCicloRitmoAlvo/pesoSugerido/recalcularPesosCiclo. -->
         <div id="cicloRitmoAlvo"></div>
-        <div id="cicloExcedenteWrap"></div>
       </div>
       <details class="card recolhivel">
         <summary><h2>Sequência de Estudos</h2><span class="marcador" aria-hidden="true"></span></summary>
@@ -2236,6 +2235,14 @@
           <button class="btn ghost sm" id="btnCicloEditSeq"><svg class=ic-svg aria-hidden=true><use href=#ic-pencil></use></svg></button>
         </div>
         <div id="cicloSequencia"></div>
+      </details>
+      <!-- "Estudado fora do planejado" (ago/2026, pedido do Bruno): virou um menu recolhível
+           próprio, no mesmo padrão da Sequência de Estudos, em vez de um bloco fixo dentro do
+           card Ciclo - ver renderCicloExcedente. Some da tela inteiro (display:none) quando
+           nenhuma matéria excedeu a própria meta da rodada. -->
+      <details class="card recolhivel" id="cicloExcedenteCard" style="display:none;">
+        <summary><h2>Estudado fora do planejado</h2><span class="marcador" aria-hidden="true"></span></summary>
+        <div id="cicloExcedenteWrap"></div>
       </details>
       <div class="card">
         <h2 style="margin:0 0 12px;">Histórico de ciclos</h2>
@@ -9996,30 +10003,28 @@ function renderCicloRitmoAlvo(){
 // meta da rodada. Esse bloco só existe pra deixar esse excedente visível, em vez de ele
 // simplesmente sumir da tela - ver cicloExcedenteSegundos/cicloExcedenteTotalSegundos.
 function renderCicloExcedente(){
+  const card = document.getElementById('cicloExcedenteCard');
   const wrap = document.getElementById('cicloExcedenteWrap');
-  if(!wrap) return;
+  if(!card || !wrap) return;
   const porMateria = SUBJECTS.map((s,si)=>({si, seg: cicloExcedenteSegundos(si)}))
     .filter(x=>x.seg>0)
     .sort((a,b)=> b.seg-a.seg);
-  if(porMateria.length===0){ wrap.innerHTML = ''; return; }
+  if(porMateria.length===0){ card.style.display = 'none'; wrap.innerHTML = ''; return; }
+  card.style.display = '';
   const total = porMateria.reduce((s,x)=>s+x.seg,0);
   // Lista com o MESMO estilo de linha da Sequência de Estudos (.ciclo-seq-row) - pedido do
-  // Bruno: o detalhe por matéria do que foi estudado fora do planejado, não só uma frase
-  // com os nomes. Clicável igual a Sequência (abre a matéria), sem barra/pct (não é uma
-  // meta a bater, é o excedente por cima dela).
-  wrap.innerHTML = `<div class="meta-alvo-block">
-    <div class="lbl">Estudado fora do planejado</div>
-    <div class="sub">+${fmtHorasMin(total)} além da meta desta rodada. Esse tempo já contou no seu tempo total estudado e nas questões respondidas — só não entra no Progresso nem no Restante do ciclo.</div>
-    <div class="ciclo-seq-lista" style="margin-top:8px;">
-      ${porMateria.map(x=>`<div class="ciclo-seq-row" style="border-left-color:${subjectColor(x.si)}" data-si="${x.si}">
-        <div class="info">
-          <b>${SUBJECTS[x.si].name}</b>
-          <small>+${fmtDuracao(x.seg)} além da meta desta rodada</small>
-        </div>
-        <div class="chev">›</div>
-      </div>`).join('')}
-    </div>
-  </div>`;
+  // Bruno: o detalhe por matéria do que foi estudado fora do planejado, num menu recolhível
+  // próprio (igual a Sequência de Estudos), não só uma frase com os nomes. Clicável igual a
+  // Sequência (abre a matéria), sem barra/pct (não é uma meta a bater, é o excedente por
+  // cima dela).
+  wrap.innerHTML = `<div style="font-size:.82rem; color:var(--text-mut); line-height:1.5; margin-bottom:12px;">+${fmtHorasMin(total)} além da meta desta rodada. Esse tempo já contou no seu tempo total estudado e nas questões respondidas — só não entra no Progresso nem no Restante do ciclo.</div>
+    ${porMateria.map(x=>`<div class="ciclo-seq-row" style="border-left-color:${subjectColor(x.si)}" data-si="${x.si}">
+      <div class="info">
+        <b>${SUBJECTS[x.si].name}</b>
+        <small>+${fmtDuracao(x.seg)} além da meta desta rodada</small>
+      </div>
+      <div class="chev">›</div>
+    </div>`).join('')}`;
   wrap.querySelectorAll('.ciclo-seq-row').forEach(row=>{
     row.addEventListener('click', ()=> openSubjectTab(parseInt(row.dataset.si,10)));
   });
