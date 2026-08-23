@@ -9275,6 +9275,9 @@ function renderQuizQuestion(resetScroll){
       html += `<div class="quiz-verdict ${correct?'ok':'bad'}">${correct? '<svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg> Você acertou!' : '<svg class=ic-svg aria-hidden=true><use href=#ic-x-circle></use></svg> Você errou. Resposta certa: letra '+q.letters[q.correctIndex]}</div>`;
     }
     if(q.explanation){ html += `<div class="quiz-expl"><b>Raciocínio:</b><br>${escapeHtml(q.explanation)}</div>`; }
+    /* Resolucao recortada da apostila (formulas/tabelas que nao sobrevivem a extracao
+       de texto). Fica dentro do bloco de questao ja respondida, junto do raciocinio. */
+    if(q.explanationImage){ html += `<div class="quiz-image-wrap"><img class="quiz-image" src="${q.explanationImage}" alt="Resolução da questão"></div>`; }
   }
   html += `</div>`;
   body.innerHTML = html;
