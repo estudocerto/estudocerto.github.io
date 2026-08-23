@@ -1337,22 +1337,36 @@
      no meio de um quiz misturado. */
   .quiz-origin{display:inline-flex; align-items:center; gap:5px; font-size:.72rem; color:var(--green); font-weight:700; background:color-mix(in srgb, var(--green) 12%, transparent); padding:4px 9px; border-radius:20px; margin-bottom:10px;}
   .quiz-stem{font-size:1rem; font-weight:650; line-height:1.45; margin-bottom:16px; white-space:pre-line;}
+  .quiz-opt-hint{font-size:.72rem; color:var(--text-mut); margin-bottom:8px; line-height:1.4;}
   .quiz-options{display:flex; flex-direction:column; gap:9px;}
   .opt{
     display:flex; align-items:flex-start; gap:10px; text-align:left; width:100%;
     background:var(--card); border:1.5px solid var(--border); border-radius:12px; padding:11px 13px;
-    font-size:.88rem; line-height:1.4; color:var(--text); cursor:pointer;
+    font-size:.88rem; line-height:1.4; color:var(--text); cursor:default;
   }
+  .opt-text{flex:1; cursor:pointer;}
+  /* ago/2026 (pedido do Bruno): a letra precisa ser um alvo de clique claramente diferente
+     do resto da alternativa - só ela responde a questão, então ganhou borda e destaque
+     próprios (parece um botão dentro do botão) em vez do quadradinho neutro de antes. */
   .opt-letter{
-    width:24px; height:24px; border-radius:7px; background:var(--bg); color:var(--text-mut); font-weight:800; font-size:.78rem;
+    width:28px; height:28px; border-radius:8px; background:var(--bg); color:var(--text-mut); font-weight:800; font-size:.8rem;
     display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px;
+    border:1.5px solid var(--border); cursor:pointer; transition:background .12s,border-color .12s,color .12s,transform .12s;
   }
+  .opt:not(.disabled) .opt-letter:hover{background:var(--accent); border-color:var(--accent); color:var(--on-accent); transform:scale(1.08);}
+  .opt:not(.disabled):not(.eliminated) .opt-text:hover{text-decoration:underline; text-decoration-style:dashed; text-decoration-color:var(--text-mut);}
   .opt.correct{background:#e9f8ef; border-color:var(--green); color:var(--green-dark); font-weight:700;}
-  .opt.correct .opt-letter{background:var(--green); color:var(--on-accent);}
+  .opt.correct .opt-letter{background:var(--green); border-color:var(--green); color:var(--on-accent);}
   .opt.wrong{background:var(--danger-bg); border-color:var(--danger); color:var(--danger); font-weight:700;}
-  .opt.wrong .opt-letter{background:var(--danger); color:var(--on-accent);}
+  .opt.wrong .opt-letter{background:var(--danger); border-color:var(--danger); color:var(--on-accent);}
   .opt.disabled{cursor:default;}
+  .opt.disabled .opt-letter{cursor:default;}
   .opt.disabled:not(.correct):not(.wrong){opacity:.5;}
+  /* Riscar/eliminar alternativa (ago/2026, pedido do Bruno): clicar no texto (fora da letra)
+     risca a alternativa, sem responder - ajuda a eliminar visualmente as que já sabe que
+     estão erradas antes de decidir. Só existe enquanto a questão não foi respondida. */
+  .opt.eliminated{opacity:.55;}
+  .opt.eliminated .opt-text{text-decoration:line-through; text-decoration-thickness:1.5px; text-decoration-color:var(--danger);}
   .quiz-verdict{font-weight:800; font-size:.95rem; margin-top:16px; padding:12px 14px; border-radius:12px;}
   .quiz-verdict.ok{background:#e9f8ef; color:var(--green-dark);}
   .quiz-verdict.bad{background:var(--danger-bg); color:var(--danger);}
@@ -9112,7 +9126,7 @@ function inferirEscopoQuiz(questions){
 function startQuiz(questions, title, mode){
   if(!questions || questions.length===0){ toast('Nenhuma questão disponível para esta aula.'); return; }
   quizState = { questions: shuffleArray(questions.slice()), idx:0, title,
-                mode: mode||'quiz', answers:{}, iniciadoEm: Date.now() };
+                mode: mode||'quiz', answers:{}, eliminated:{}, iniciadoEm: Date.now() };
   // 19/08/2026 (decisao do Bruno): TODO quiz inicia cronometro automaticamente, sem excecao -
   // nao deve existir a opcao de responder questoes sem cronometro rodando. Funciona mesmo pra
   // quizzes que misturam materias (ver inferirEscopoQuiz/activeSessionSubjectLabel).
@@ -9187,7 +9201,15 @@ function computeFirstTryRate(){
   });
   return { seen, correct, pct: seen? Math.round(correct/seen*100) : null };
 }
-function renderQuizQuestion(){
+// ago/2026 (pedido do Bruno): responder uma questão não deve mais "descer a tela sozinha"
+// até a explicação - o certo/errado já aparece na própria alternativa (classe .correct/
+// .wrong) e o usuário decide se rola pra ver o raciocínio. `resetScroll` (default true)
+// só volta o scroll pro topo quando a questão em tela MUDA de verdade (navegação,
+// aleatória, abrir o quiz, voltar do modal de reporte) - responder (answerQuiz) e
+// riscar/desriscar uma alternativa (toggleEliminarAlternativa) chamam com `false` pra
+// manter o usuário exatamente onde estava.
+function renderQuizQuestion(resetScroll){
+  if(resetScroll===undefined) resetScroll = true;
   const {questions, idx, mode, answers} = quizState;
   const q = questions[idx];
   const total = questions.length;
@@ -9229,6 +9251,9 @@ function renderQuizQuestion(){
   if(q.image){ html += `<div class="quiz-image-wrap"><img class="quiz-image" src="${q.image}" alt="Imagem da questão"></div>`; }
   if(q.tag){ html += `<div class="quiz-tag">${escapeHtml(q.tag)}</div>`; }
   html += `<div class="quiz-stem">${escapeHtml(q.stem)}</div>`;
+  if(!showAnswered){
+    html += `<div class="quiz-opt-hint">Toque na <b>letra</b> pra responder · toque no resto do texto pra riscar (eliminar) a alternativa</div>`;
+  }
   html += `<div class="quiz-options" id="quizOptions">`;
   q.options.forEach((opt,i)=>{
     let cls = 'opt';
@@ -9236,8 +9261,10 @@ function renderQuizQuestion(){
       cls += ' disabled';
       if(i===q.correctIndex) cls += ' correct';
       else if(i===chosenIdx) cls += ' wrong';
+    } else if(quizState.eliminated && quizState.eliminated[idx] && quizState.eliminated[idx][i]){
+      cls += ' eliminated';
     }
-    html += `<button class="${cls}" data-i="${i}" ${showAnswered?'disabled':''}><span class="opt-letter">${q.letters[i]}</span><span class="opt-text">${optTextHtml(opt, q.emphasis && q.emphasis[i])}</span></button>`;
+    html += `<button class="${cls}" data-i="${i}" ${showAnswered?'disabled':''}><span class="opt-letter" title="Responder com esta alternativa">${q.letters[i]}</span><span class="opt-text">${optTextHtml(opt, q.emphasis && q.emphasis[i])}</span></button>`;
   });
   html += `</div><div id="quizFeedback">`;
   if(showAnswered){
@@ -9251,7 +9278,7 @@ function renderQuizQuestion(){
   }
   html += `</div>`;
   body.innerHTML = html;
-  body.scrollTop = 0;
+  if(resetScroll) body.scrollTop = 0;
 
   document.getElementById('quizPrevBtn').addEventListener('click', ()=> quizGoTo(idx-1));
   document.getElementById('quizNextIcBtn').addEventListener('click', ()=> quizGoTo(idx+1));
@@ -9261,8 +9288,15 @@ function renderQuizQuestion(){
   document.getElementById('quizReportBtn').addEventListener('click', ()=> abrirReporteQuestao(q));
 
   if(!showAnswered){
+    // ago/2026 (pedido do Bruno): só a LETRA responde a questão - clicar no resto do botão
+    // (o texto da alternativa) risca/desrisca ela, pra ajudar a eliminar alternativas que o
+    // usuário já sabe que estão erradas antes de decidir a resposta final.
     document.querySelectorAll('#quizOptions .opt').forEach(btn=>{
-      btn.addEventListener('click', ()=> answerQuiz(q, parseInt(btn.dataset.i)));
+      btn.addEventListener('click', (e)=>{
+        const i = parseInt(btn.dataset.i, 10);
+        if(e.target.closest('.opt-letter')) answerQuiz(q, i);
+        else toggleEliminarAlternativa(idx, i);
+      });
     });
   }
 }
@@ -9270,9 +9304,19 @@ function answerQuiz(q, chosenIdx){
   const correct = chosenIdx === q.correctIndex;
   recordAnswer(q.id, correct);
   quizState.answers[quizState.idx] = { chosenIdx, correct };
-  renderQuizQuestion();
-  const fb = document.getElementById('quizFeedback');
-  if(fb) fb.scrollIntoView({behavior:'smooth', block:'nearest'});
+  renderQuizQuestion(false); // sem resetar o scroll - o certo/errado já aparece na própria
+                             // alternativa, o usuário decide se rola pra ver a explicação
+}
+// Riscar/desriscar uma alternativa (ago/2026, pedido do Bruno) - não é uma resposta, é só
+// uma marcação visual de "já eliminei essa" pra ajudar a decidir entre as que sobraram.
+// Guardada por questão (índice dela dentro deste quiz) e por alternativa, só na memória
+// deste quiz em andamento - não é persistida em `state` nem conta em nenhuma métrica.
+function toggleEliminarAlternativa(qIdx, optIdx){
+  if(!quizState) return;
+  if(!quizState.eliminated) quizState.eliminated = {};
+  if(!quizState.eliminated[qIdx]) quizState.eliminated[qIdx] = {};
+  quizState.eliminated[qIdx][optIdx] = !quizState.eliminated[qIdx][optIdx];
+  renderQuizQuestion(false); // sem resetar o scroll - é só um retoque na própria alternativa
 }
 function renderQuizSummary(){
   const {questions, answers, mode} = quizState;
