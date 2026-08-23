@@ -1825,12 +1825,21 @@
   .settings-sub{font-size:.78rem; color:var(--text-mut); margin:2px 0 14px; line-height:1.5;}
   .settings-app-info{text-align:center; padding:6px 0 2px; font-size:.72rem; color:var(--text-mut);}
 
-  /* Grafico de barras (Estudo por dia, widget grafico) */
-  .weekbar-wrap{display:flex; align-items:flex-end; gap:8px; height:140px; padding-top:16px; overflow-x:auto; overflow-y:hidden;}
-  .weekbar-col{flex:0 0 auto; width:34px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:6px;}
-  .weekbar-val{font-size:.62rem; color:var(--text); font-weight:800;}
-  .weekbar-fill{width:100%; max-width:28px; border-radius:6px 6px 0 0; background:var(--green); min-height:3px;}
+  /* Grafico de barras (Estudo por dia, widget grafico). Ago/2026 (pedido do Bruno): as
+     colunas agora dividem 100% da largura do card (flex:1, sem largura fixa em px) em vez
+     de empurrar a barra de rolagem horizontal - com 30/60 dias, todas as colunas cabem na
+     mesma tela, só mais finas (ver .weekbar-wrap.dense pro ajuste extra de gap/fonte nesse
+     caso). Ver buildEstudoSemanalHtml pra escala do teto (4h fixo, não mais relativo ao
+     maior dia da janela). */
+  .weekbar-wrap{display:flex; align-items:flex-end; gap:6px; height:140px; padding-top:16px; overflow:hidden;}
+  .weekbar-col{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:5px;}
+  .weekbar-val{font-size:.62rem; color:var(--text); font-weight:800; white-space:nowrap;}
+  .weekbar-fill{width:100%; max-width:24px; border-radius:6px 6px 0 0; background:var(--green); min-height:3px;}
   .weekbar-lbl{font-size:.62rem; color:var(--text-mut); font-weight:700;}
+  .weekbar-wrap.dense{gap:2px;}
+  .weekbar-wrap.dense .weekbar-col{gap:3px;}
+  .weekbar-wrap.dense .weekbar-fill{max-width:10px; border-radius:3px 3px 0 0;}
+  .weekbar-wrap.dense .weekbar-lbl{font-size:.56rem;}
 
   /* Donut de distribuicao (widget grafico) */
   .distrib-donut-wrap{display:flex; align-items:center; gap:18px; flex-wrap:wrap; justify-content:center;}
@@ -5819,27 +5828,40 @@ function buildDistribuicaoGraficoHtml(){
 // Antes filtrava por isSubjectActive (sessao de materia desativada nao aparecia aqui, mas
 // aparecia no streak/heatmap da mesma aba) e contava questoes por questoesIds.length da sessao
 // em vez do answerLog (podia divergir em sessao de quiz interrompida ou que atravessa meia-noite).
+// Teto FIXO da barra no modo Tempo (ago/2026, pedido do Bruno): antes, a escala era relativa
+// ao MAIOR dia visível na janela (7/14/30/60 dias) - um dia de 2h08min quase enchia a barra
+// inteira se fosse o maior da semana, dando a falsa impressão de "dia cheio" mesmo longe de
+// qualquer meta razoável. Agora a barra só chega a 100% de altura em 4h de estudo naquele
+// dia - o resto é proporcional a esse teto fixo, então o mesmo número de horas sempre rende
+// a MESMA altura de barra, dia após dia, janela após janela. Dias com mais de 4h estudadas
+// só saturam em 100% (a barra não estoura visualmente, mas o valor exato continua no texto/
+// title). O modo Questões continua relativo ao maior valor da própria janela - não existe um
+// teto natural de "nº de questões por dia" equivalente às 4h.
+const ESTUDO_DIA_TETO_SEGUNDOS = 4*3600;
 function buildEstudoSemanalHtml(modo, numDias){
   numDias = Math.max(1, parseInt(numDias,10)||7);
   const dias = [];
   for(let i=numDias-1;i>=0;i--) dias.push(addDays(todayStr(), -i));
   const diaNomes = ['dom','seg','ter','qua','qui','sex','sáb'];
   const valores = dias.map(d=> modo==='questoes' ? Metricas.questoesNoDia(d) : Metricas.tempoNoDia(d));
-  const max = Math.max(1, ...valores);
+  const teto = modo==='questoes' ? Math.max(1, ...valores) : ESTUDO_DIA_TETO_SEGUNDOS;
   // com poucos dias mostra o nome do dia da semana; com mais de 14, mostra o numero do dia
-  // (repetir "seg", "ter"... varias vezes ao longo do periodo ficaria ambiguo).
+  // (repetir "seg", "ter"... varias vezes ao longo do periodo ficaria ambiguo). Acima de 14
+  // dias as colunas ficam finas demais pro texto do valor caber sem virar bagunça visual -
+  // o valor exato continua disponível no title (tooltip no desktop, toque longo no celular).
+  const mostrarValorInline = numDias<=14;
   const cols = valores.map((v,i)=>{
-    const h = v>0 ? Math.max(4, Math.round(v/max*100)) : 0;
+    const h = v>0 ? Math.min(100, Math.max(4, Math.round(v/teto*100))) : 0;
     const dt = new Date(dias[i]+"T00:00:00");
     const valTxt = modo==='questoes' ? String(v) : (v>0? fmtDuracao(v) : '–');
     const lbl = numDias>14 ? String(dt.getDate()) : diaNomes[dt.getDay()];
-    return `<div class="weekbar-col">
-      <div class="weekbar-val">${valTxt}</div>
+    return `<div class="weekbar-col" title="${fmtDate(dias[i])}: ${valTxt}">
+      ${mostrarValorInline ? `<div class="weekbar-val">${valTxt}</div>` : ''}
       <div class="weekbar-fill" style="height:${h}%;"></div>
       <div class="weekbar-lbl">${lbl}</div>
     </div>`;
   }).join('');
-  return `<div class="weekbar-wrap">${cols}</div>`;
+  return `<div class="weekbar-wrap${numDias>14?' dense':''}">${cols}</div>`;
 }
 function buildConsistenciaHtml(){
   const c = consistencia(30);
@@ -9275,9 +9297,6 @@ function renderQuizQuestion(resetScroll){
       html += `<div class="quiz-verdict ${correct?'ok':'bad'}">${correct? '<svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg> Você acertou!' : '<svg class=ic-svg aria-hidden=true><use href=#ic-x-circle></use></svg> Você errou. Resposta certa: letra '+q.letters[q.correctIndex]}</div>`;
     }
     if(q.explanation){ html += `<div class="quiz-expl"><b>Raciocínio:</b><br>${escapeHtml(q.explanation)}</div>`; }
-    /* Resolucao recortada da apostila (formulas/tabelas que nao sobrevivem a extracao
-       de texto). Fica dentro do bloco de questao ja respondida, junto do raciocinio. */
-    if(q.explanationImage){ html += `<div class="quiz-image-wrap"><img class="quiz-image" src="${q.explanationImage}" alt="Resolução da questão"></div>`; }
   }
   html += `</div>`;
   body.innerHTML = html;
