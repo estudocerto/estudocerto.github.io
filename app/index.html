@@ -8510,6 +8510,36 @@ function mergeStates(localStateRaw, cloudStateRaw, cloudUpdatedAtIso){
     merged.aulas[k] = rec;
   });
 
+  // ago/2026 (bug reportado pelo Bruno): state.calendario inteiro NAO tinha nenhuma fusao campo a
+  // campo - ele so ia junto com o `base` escolhido acima (local OU nuvem inteiros, por um unico
+  // timestamp). diasPeso (config manual, unica, sem por-materia) continua assim de proposito - segue
+  // o lado mais recentemente editado, igual o resto do estado que nao esta na lista abaixo. Mas
+  // diasPadrao ("dia de casa" por materia, ver secao 21 - prometido como PERMANENTE "ate eu mudar
+  // manualmente") nao pode se dar ao luxo disso: um sync que escolhe o lado errado como base apagaria
+  // silenciosamente o padrao de uma materia que so tinha sido gravado no outro aparelho. Aqui a gente
+  // une os dois lados por materia - o lado ja presente no `base` vence (mesmo criterio de sempre),
+  // mas nenhuma materia que so existe no OUTRO lado e' descartada.
+  {
+    const diasPadraoLocal = (localState.calendario && localState.calendario.diasPadrao) || {};
+    const diasPadraoCloud = (cloudState.calendario && cloudState.calendario.diasPadrao) || {};
+    const diasPadraoBase = (merged.calendario && merged.calendario.diasPadrao) || {};
+    const siKeys = new Set([...Object.keys(diasPadraoLocal), ...Object.keys(diasPadraoCloud)]);
+    if(siKeys.size){
+      const diasPadraoMerged = {};
+      siKeys.forEach(siStr=>{
+        if(Array.isArray(diasPadraoBase[siStr]) && diasPadraoBase[siStr].length){
+          diasPadraoMerged[siStr] = diasPadraoBase[siStr]; // materia ja presente no lado base - mantem
+        } else {
+          // so existe no lado que NAO foi escolhido como base - preserva em vez de perder
+          const doOutroLado = (Array.isArray(diasPadraoLocal[siStr]) && diasPadraoLocal[siStr].length) ? diasPadraoLocal[siStr] : diasPadraoCloud[siStr];
+          if(Array.isArray(doOutroLado) && doOutroLado.length) diasPadraoMerged[siStr] = doOutroLado;
+        }
+      });
+      if(!merged.calendario) merged.calendario = { semanaRef:null, blocos:{}, diasPeso:null, algoVersion:null, diasPadrao:null };
+      merged.calendario.diasPadrao = diasPadraoMerged;
+    }
+  }
+
   merged.mergeIdsMigrado = true;
   return merged;
 }
