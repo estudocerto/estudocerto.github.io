@@ -2524,6 +2524,19 @@
   </div>
 </div>
 
+<!-- ago/2026 (pedido do Bruno): pergunta exibida quando horasPorSemana muda em "Replanejar" -
+     ver abrirDivisaoSemanaModal no script. -->
+<div class="quiz-overlay" id="divisaoSemanaOverlay">
+  <div class="quiz-modal" style="height:auto; max-height:60vh;">
+    <div class="quiz-header">
+      <button class="quiz-close" id="divisaoSemanaClose"><svg class=ic-svg aria-hidden=true><use href=#ic-close></use></svg></button>
+      <div class="quiz-progress">Ajustar Calendário da Semana</div>
+      <div class="quiz-title"></div>
+    </div>
+    <div class="quiz-body" id="divisaoSemanaBody"></div>
+  </div>
+</div>
+
 <div class="quiz-overlay" id="helpOverlay">
   <div class="quiz-modal" style="height:auto; max-height:88vh;">
     <div class="quiz-header">
@@ -4897,7 +4910,7 @@ function abrirSessaoBloco(dia, idx){
   const bloco = c.blocos[dia] && c.blocos[dia][idx];
   if(!bloco) return;
   if(bloco.done){ toast('Esse bloco já foi concluído.'); return; }
-  if(!isSubjectActive(bloco.si)){ toast('Essa matéria foi removida do ciclo - edite a semana em "Recalcular".'); return; }
+  if(!isSubjectActive(bloco.si)){ toast('Essa matéria foi removida do ciclo - reative em "Replanejar".'); return; }
   openStartSessionModal(bloco.si, proximaAulaPendenteMateria(bloco.si), { dia, idx });
 }
 function formatarIntervaloSemana(segundaStr){
@@ -10337,6 +10350,33 @@ document.getElementById('btnCicloEditSeq').addEventListener('click', ()=>{
 document.getElementById('cicloMostrarFinalizados').addEventListener('change', renderCicloSequencia);
 document.getElementById('btnCicloReplanejar').addEventListener('click', openReplanCicloModal);
 document.getElementById('replanCicloClose').addEventListener('click', ()=> document.getElementById('replanCicloOverlay').classList.remove('show'));
+document.getElementById('divisaoSemanaClose').addEventListener('click', ()=> document.getElementById('divisaoSemanaOverlay').classList.remove('show'));
+// ago/2026 (pedido do Bruno, bug relacionado: mudar horasPorSemana em "Replanejar" nunca
+// regenerava o Calendário da Semana - a mudança só aparecia na próxima 2a-feira/"Atualizar
+// ciclo". Corrigido junto com este pedido: agora, toda vez que horasPorSemana muda de verdade,
+// a semana é regenerada NA HORA (gerarSemanaCalendario(true), ver replanConfirmBtn abaixo) -
+// e como isso pode crescer ou encolher a carga de cada matéria, o app pergunta como distribuir
+// a diferença, em vez de decidir sozinho.
+function abrirDivisaoSemanaModal(horasAntigas, horasNovas, onEscolha){
+  const body = document.getElementById('divisaoSemanaBody');
+  const cresceu = horasNovas > horasAntigas;
+  body.innerHTML = `
+    <div class="empty" style="padding:0 0 16px; text-align:left;">
+      As horas semanais do ciclo vão de <b>${horasAntigas}h</b> pra <b>${horasNovas}h</b>.
+      Como o Calendário da Semana desta semana deve se ajustar?
+    </div>
+    <button class="btn block" id="divSemanaManterCasa" style="margin-bottom:10px;">Manter os dias de casa de cada matéria — só ${cresceu?'aumentar':'diminuir'} a carga nesses mesmos dias</button>
+    <button class="btn block ghost" id="divSemanaRepadronizar">Repadronizar do zero — deixar o app escolher novos dias pra cada matéria</button>`;
+  document.getElementById('divSemanaManterCasa').addEventListener('click', ()=>{
+    document.getElementById('divisaoSemanaOverlay').classList.remove('show');
+    onEscolha(false);
+  });
+  document.getElementById('divSemanaRepadronizar').addEventListener('click', ()=>{
+    document.getElementById('divisaoSemanaOverlay').classList.remove('show');
+    onEscolha(true);
+  });
+  document.getElementById('divisaoSemanaOverlay').classList.add('show');
+}
 function openReplanCicloModal(){
   const c = ensureCicloDefaults();
   if(!c) return;
@@ -10353,7 +10393,7 @@ function openReplanCicloModal(){
       <span>${DIAS_SEMANA_LABEL[d]}</span>
       <input type="number" min="0" max="24" step="0.5" class="replan-dia-peso" data-dia="${d}" value="${calC.diasPeso[d]}">
     </div>`).join('') + `</div>`;
-  html += `<div class="empty" style="padding:0 0 10px; text-align:left;">Peso relativo de cada dia na distribuição dos blocos de 30min da semana — deixe 0 num dia pra não estudar nele. Vale a partir da próxima semana gerada (ou toque em "Recalcular" no card do Calendário pra aplicar já na semana atual).</div>`;
+  html += `<div class="empty" style="padding:0 0 10px; text-align:left;">Peso relativo de cada dia na distribuição dos blocos de 30min da semana — deixe 0 num dia pra não estudar nele. Só vale pra matérias sem dia de casa ainda (ver Calendário da Semana); pra quem já tem dia de casa fixo, o peso do dia não é usado. Vale a partir da próxima semana gerada.</div>`;
   html += `<div class="form-row"><label>Matérias no ciclo e peso de cada uma ${tipIcon('peso_ciclo_sugerido')}</label></div>`;
   html += `<div class="empty" style="padding:0 0 10px; text-align:left;">Desmarque uma matéria pra tirá-la do ciclo — ela também some do progresso geral, da Taxa de Domínio geral e de todas as outras métricas "todas as matérias" do app.</div>`;
   html += SUBJECTS.map((s,si)=>{
@@ -10404,7 +10444,8 @@ function openReplanCicloModal(){
   wireTooltips(body);
 
   document.getElementById('replanConfirmBtn').addEventListener('click', ()=>{
-    const horas = parseFloat(document.getElementById('replanHoras').value)||c.horasPorSemana;
+    const horasAntigas = c.horasPorSemana;
+    const horasNovas = parseFloat(document.getElementById('replanHoras').value)||c.horasPorSemana;
     const pesos = {};
     const ativas = {};
     body.querySelectorAll('.ciclo-peso-row').forEach(row=>{
@@ -10414,16 +10455,32 @@ function openReplanCicloModal(){
         pesos[si] = Math.max(0, Number(row.querySelector('.replan-peso').value)||0);
       }
     });
-    replanejarCiclo(horas, pesos, ativas);
     const diasPeso = {};
     body.querySelectorAll('.replan-dia-peso').forEach(inp=>{
       diasPeso[inp.dataset.dia] = Math.max(0, Number(inp.value)||0);
     });
-    ensureCalendarioDefaults().diasPeso = diasPeso;
-    save();
-    document.getElementById('replanCicloOverlay').classList.remove('show');
-    renderAll();
-    toast('Ciclo replanejado.');
+    // ago/2026 (pedido do Bruno): so pergunta/regenera na hora quando horasPorSemana MUDOU de
+    // verdade - override de peso/dias-peso sozinhos continuam so valendo a partir da proxima
+    // virada de semana, como sempre foi (nao mexe no que o usuario ja arrastou manualmente).
+    const horasMudaram = Math.abs(horasNovas-horasAntigas) > 0.001;
+    function aplicarReplanejamento(repadronizarDoZero){
+      replanejarCiclo(horasNovas, pesos, ativas);
+      const calC = ensureCalendarioDefaults();
+      calC.diasPeso = diasPeso;
+      if(horasMudaram){
+        if(repadronizarDoZero) calC.diasPadrao = {}; // limpa - toda materia volta a escolher dia como se fosse nova (ver gerarSemanaCalendario)
+        gerarSemanaCalendario(true); // aplica JA na semana atual, sem esperar a proxima 2a-feira/"Atualizar ciclo"
+      }
+      save();
+      document.getElementById('replanCicloOverlay').classList.remove('show');
+      renderAll();
+      toast(horasMudaram ? 'Ciclo replanejado — Calendário da Semana já atualizado.' : 'Ciclo replanejado.');
+    }
+    if(horasMudaram){
+      abrirDivisaoSemanaModal(horasAntigas, horasNovas, aplicarReplanejamento);
+    } else {
+      aplicarReplanejamento(false);
+    }
   });
   document.getElementById('replanCicloOverlay').classList.add('show');
 }
