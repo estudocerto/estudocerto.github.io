@@ -4063,6 +4063,15 @@ function ensureCicloDefaults(){
   if(!c.ordem || c.ordem.length!==SUBJECTS.length) c.ordem = SUBJECTS.map((s,si)=>si);
   if(c.ciclosCompletos===undefined) c.ciclosCompletos = 0;
   if(!c.cicloStartedAt) c.cicloStartedAt = Date.now();
+  // ago/2026 (pedido do Bruno): "início do acompanhamento" pro ritmo (Ritmo até a data alvo)
+  // precisa ser ESTÁVEL - não pode resetar toda vez que "Atualizar ciclo" fecha uma rodada
+  // (cicloStartedAt), senão o ritmo atual (páginas/dia, questões/dia) fica medido numa janela
+  // quase vazia logo depois de cada atualização semanal. O ritmo depende só de quanto você lê/
+  // resolve questões, não da rodada do ciclo - ver dataInicioPlanejamentoISO/
+  // atualizarCicloSemanaManual. Migração: instalações antigas sem esse campo herdam o
+  // cicloStartedAt atual como ponto de partida (não há como saber quando o acompanhamento
+  // "de verdade" começou antes disso).
+  if(!c.acompanhamentoDesde) c.acompanhamentoDesde = c.cicloStartedAt;
   return c;
 }
 // Uma materia pode ser excluida do ciclo (aba Planejamento). Isso vale pro app inteiro: ela
@@ -4285,13 +4294,15 @@ function registrarHistoricoCiclo(fimTs, completo){
 // simplesmente não desenha nada). Mantido caso um aviso futuro precise reaproveitar o banner.
 let avisoCicloPendente = null;
 function criarCiclo(horasPorSemana){
+  const agora = Date.now();
   state.ciclo = {
     horasPorSemana: Math.max(1, Number(horasPorSemana)||20),
     pesos: {},
     pesoSnapshot: {},
     ordem: SUBJECTS.map((s,si)=>si),
     ciclosCompletos: 0,
-    cicloStartedAt: Date.now(),
+    cicloStartedAt: agora,
+    acompanhamentoDesde: agora, // ver comentario em ensureCicloDefaults - nao reseta em "Atualizar ciclo"
   };
   save();
 }
@@ -4648,19 +4659,56 @@ function registrarHistoricoSemana(){
 // peso não reage mais ao desvio da semana passada, só ao que está pendente agora (ver
 // pesoSugerido/recalcularPesosCiclo). registrarHistoricoSemana() continua rodando (guarda o
 // desvio como dado histórico, sem efeito no peso) - ver comentário dela.
-// Clique no botao "Atualizar ciclo" (so visivel quando calendarioDesatualizado()). Ordem
-// importa: registrarHistoricoSemana/recalcularPesosCiclo rodam ANTES de gerarSemanaCalendario
-// sobrescrever c.blocos/c.semanaRef - a semana nova ja nasce com os pesos recem-recalculados.
+// Clique no botao "Atualizar ciclo" (so visivel quando calendarioDesatualizado()).
+//
+// ago/2026 (pedido do Bruno, confirmado explicitamente apos ele reportar materias aparecendo
+// "concluidas" na semana sem ter estudado nada): antes, esta funcao so recalculava pesos e
+// remontava a semana, mas NUNCA fechava a rodada anterior do ciclo (cicloStartedAt continuava
+// o mesmo). Resultado: uma materia quase pronta podia ganhar uma meta nova bem menor (peso
+// baixo -> meta baixa) que o tempo JA acumulado em rodadas/semanas anteriores cobria sozinho,
+// entao cicloPct pulava pra 100% na hora e sincronizarBlocosSemana marcava a semana inteira
+// como concluida de brinde, mesmo antes dela comecar de verdade. A materia que realmente
+// ainda tinha muito conteudo pendente (Estatistica, no caso reportado) era a unica que sobrava
+// pendente, porque a meta dela continuava alta o bastante pra nao ser coberta pelo acumulado
+// antigo.
+//
+// Correcao (entendimento confirmado com o Bruno): "Atualizar ciclo" agora FECHA a rodada
+// anterior antes de recalcular - mesma logica de recomecarCiclo() (registra no historico como
+// incompleta, avanca cicloStartedAt pro instante seguinte a ultima sessao registrada). Isso
+// zera cicloEstudadoSegundos/cicloPct de todo mundo pra rodada nova, entao a semana sempre
+// nasce com tudo pendente de verdade, nunca com credito "fantasma" de estudo anterior. Peso
+// continua vindo so do que falta estudar como um todo (pesoSugerido, independente de rodada),
+// e os TOTAIS (paginas, horas, questoes, historico de sessoes) nao sao afetados - eles nunca
+// dependeram de cicloStartedAt, so leem state.sessions/state.progress direto. O que muda de
+// verdade fechando a rodada e SO a metrica de progresso da rodada em si (Sequencia de
+// Estudos/roscas do Ciclo/checkmarks do calendario) - por isso o "Ritmo ate a data alvo" foi
+// desacoplado pra um marco proprio (acompanhamentoDesde, ver ensureCicloDefaults/
+// dataInicioPlanejamentoISO) que NAO reseta aqui, ja que o ritmo de leitura/questoes e uma
+// metrica independente da rodada do ciclo.
+//
+// Ordem importa: fechamento da rodada + registrarHistoricoSemana/recalcularPesosCiclo rodam
+// ANTES de gerarSemanaCalendario sobrescrever c.blocos/c.semanaRef - a semana nova ja nasce
+// com os pesos recem-recalculados e a rodada zerada.
 function atualizarCicloSemanaManual(){
   registrarHistoricoSemana();
+  const c = ensureCicloDefaults();
+  if(c){
+    // mesma logica de recomecarCiclo()/checkCicloCompletion: usa o maior timestampFim ja
+    // registrado (+1ms) em vez de Date.now(), pra garantir que nenhuma sessao ja contabilizada
+    // na rodada que esta fechando continue contando pra rodada nova.
+    const maxFim = state.sessions.reduce((m,s)=> Math.max(m, s.timestampFim), c.cicloStartedAt);
+    registrarHistoricoCiclo(maxFim, false);
+    c.cicloStartedAt = maxFim+1;
+    save();
+  }
   const nRecalculadas = recalcularPesosCiclo();
   gerarSemanaCalendario(true);
   renderPlanejamento();
   toast(nRecalculadas>0
     ? (nRecalculadas===1
-        ? 'Ciclo atualizado pra esta semana. Pesos recalculados com base no que ainda está pendente (1 matéria voltou a ser automática).'
-        : `Ciclo atualizado pra esta semana. Pesos recalculados com base no que ainda está pendente (${nRecalculadas} matérias voltaram a ser automáticas).`)
-    : 'Ciclo atualizado pra esta semana. Pesos recalculados com base no que ainda está pendente.');
+        ? 'Ciclo atualizado: rodada anterior encerrada, pesos recalculados com base no que ainda está pendente (1 matéria voltou a ser automática).'
+        : `Ciclo atualizado: rodada anterior encerrada, pesos recalculados com base no que ainda está pendente (${nRecalculadas} matérias voltaram a ser automáticas).`)
+    : 'Ciclo atualizado: rodada anterior encerrada, pesos recalculados com base no que ainda está pendente.');
 }
 /* ===================== SINCRONIA DO CALENDARIO COM QUALQUER SESSAO (ago/2026) =====================
    Bug reportado pelo Bruno: estudar uma materia pela aba Materia (fora do fluxo "clicar num
@@ -7624,14 +7672,16 @@ function registrarRevisaoAvulsa(si, ai, qualidade){
 // state.metaDataAlvo (ver listener de #metaDataAlvo).
 // Janela de 30 dias corridos (não só dias com atividade): reflete frequência real, não
 // só o quanto rendeu nos dias em que abriu o app.
-// Data de início do PLANEJAMENTO (ago/2026, pedido do Bruno): usamos a data em que o Ciclo
-// atual foi criado (cicloStartedAt) - é o "início do acompanhamento" na prática, já usado em
-// toda métrica de Ciclo (cicloEstudadoSegundos etc.). Sem ciclo criado ainda, retorna null e
-// as métricas de ritmo caem no comportamento antigo (janela fixa).
+// Data de início do PLANEJAMENTO (ago/2026, pedido do Bruno): usa c.acompanhamentoDesde, NÃO
+// c.cicloStartedAt - o ritmo (páginas/dia, questões/dia) é uma métrica independente da rodada
+// do ciclo, depende só de quanto você lê/resolve questões de fato, então precisa de uma janela
+// estável que não reseta quando "Atualizar ciclo" fecha uma rodada (ver ensureCicloDefaults e
+// atualizarCicloSemanaManual). Sem ciclo criado ainda, retorna null e as métricas de ritmo caem
+// no comportamento antigo (janela fixa).
 function dataInicioPlanejamentoISO(){
   const c = state.ciclo;
-  if(!c || !c.cicloStartedAt) return null;
-  return dataLocalDe(c.cicloStartedAt);
+  if(!c || !c.acompanhamentoDesde) return null;
+  return dataLocalDe(c.acompanhamentoDesde);
 }
 // Quantos dias corridos se passaram desde o início do planejamento, contando o próprio dia
 // de início como dia 1 (nunca 0, pra não gerar divisão por zero em quem criou o ciclo hoje).
