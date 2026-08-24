@@ -2102,7 +2102,7 @@
         <div class="settings-sub" style="margin-top:-6px;">Escolha até quando quer terminar de ler toda a teoria restante. O app calcula o ritmo necessário — em páginas/dia e em questões/dia — pra chegar lá no prazo, com base no seu ritmo atual.</div>
         <!-- "Data de início" (ago/2026, pedido do Bruno): mostra a partir de quando o ritmo
              atual (páginas/dia, questões/dia) está sendo medido - ver dataInicioPlanejamentoISO. -->
-        <div id="metaDataInicioLbl" style="font-size:.76rem; color:var(--text-mut); margin-bottom:10px;"></div>
+        <div id="metaDataInicioLbl" style="font-size:.76rem; color:var(--text-mut); margin-bottom:10px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;"></div>
         <div class="form-row" style="margin-bottom:10px;">
           <label>Terminar até</label>
           <input type="date" id="metaDataAlvo">
@@ -3830,7 +3830,7 @@ function tempoTotalSimulados(periodo){
   const today = todayStr();
   let inicio = null;
   if(periodo==='hoje') inicio = today;
-  else if(periodo==='semana') inicio = addDays(today, -6);
+  else if(periodo==='semana') inicio = segundaFeiraDe(today); // semana civil (seg-dom), reinicia toda 2a - nao rolling 7d
   else if(periodo==='mes') inicio = addDays(today, -29);
   let total = 0;
   Object.keys(provas).forEach(id=>{
@@ -3842,14 +3842,16 @@ function tempoTotalSimulados(periodo){
   return total;
 }
 function tempoTotalApostila(si,ai, sessions){ return tempoTotalTeoriaApostila(si,ai,sessions)+tempoTotalQuestoesApostila(si,ai,sessions); }
-// Filtra as sessoes por periodo: 'hoje' | 'semana' (ultimos 7 dias) | 'mes' (ultimos 30 dias) | 'total'.
+// Filtra as sessoes por periodo: 'hoje' | 'semana' (semana civil seg-dom, reinicia toda 2a -
+// ago/2026, pedido do Bruno: antes era rolling 7 dias, o que nao batia com o Calendario da
+// Semana nem com a nocao de "semana" do resto do app) | 'mes' (ultimos 30 dias) | 'total'.
 // Usado pelo seletor inline de periodo do widget "Tempo total" no Painel.
 function sessionsNoPeriodo(periodo){
   if(!periodo || periodo==='total') return state.sessions;
   const today = todayStr();
   let inicio;
   if(periodo==='hoje') inicio = today;
-  else if(periodo==='semana') inicio = addDays(today, -6);
+  else if(periodo==='semana') inicio = segundaFeiraDe(today); // semana civil (seg-dom), reinicia toda 2a - nao rolling 7d
   else if(periodo==='mes') inicio = addDays(today, -29);
   else return state.sessions;
   return state.sessions.filter(s=>{
@@ -3857,7 +3859,7 @@ function sessionsNoPeriodo(periodo){
     return d>=inicio && d<=today;
   });
 }
-function periodoLabel(p){ return { hoje:'Hoje', semana:'Semana (7d)', mes:'Mês (30d)', total:'Total' }[p] || p; }
+function periodoLabel(p){ return { hoje:'Hoje', semana:'Semana', mes:'Mês (30d)', total:'Total' }[p] || p; }
 // versoes "consolidado" (teoria+questoes) das estimativas de tempo restante, usadas pelo
 // widget unico "Tempo estimado restante" quando o usuario escolhe o modo Consolidado.
 function tempoRestanteApostilaConsolidado(si,ai){
@@ -4946,7 +4948,7 @@ const METRICS_CATALOG = [
     niveis:['global','materia','apostila','lista'],
     periodos:[{id:'hoje',label:'Hoje'},{id:'semana',label:'Semana'},{id:'mes',label:'Mês'},{id:'total',label:'Total'}],
     tamanho:'pequeno',
-    tooltip:'Soma do tempo líquido (sem contar pausas) que você já dedicou ao estudo. No próprio widget você escolhe o que medir — Teoria, Questões, os dois juntos (Consolidado) ou o tempo gasto em Simulados (provas completas, à parte — não entra no Consolidado nem no progresso do Ciclo) —, a granularidade e o período: Hoje, Semana (últimos 7 dias), Mês (últimos 30 dias) ou Total (todo o histórico).' },
+    tooltip:'Soma do tempo líquido (sem contar pausas) que você já dedicou ao estudo. No próprio widget você escolhe o que medir — Teoria, Questões, os dois juntos (Consolidado) ou o tempo gasto em Simulados (provas completas, à parte — não entra no Consolidado nem no progresso do Ciclo) —, a granularidade e o período: Hoje, Semana (semana civil, de segunda a domingo — reinicia toda segunda-feira), Mês (últimos 30 dias) ou Total (todo o histórico).' },
   { id:'ritmo', categoria:'Tempo', titulo:'Ritmo',
     modos:[{id:'leitura',label:'Leitura'},{id:'resolucao',label:'Resolução'}],
     niveis:['global','materia','apostila'], tamanho:'pequeno',
@@ -6076,7 +6078,7 @@ function buildTempoTotalListaHtml(modo, periodo){
     const today = todayStr();
     let inicio = null;
     if(periodo==='hoje') inicio = today;
-    else if(periodo==='semana') inicio = addDays(today, -6);
+    else if(periodo==='semana') inicio = segundaFeiraDe(today); // semana civil (seg-dom), reinicia toda 2a - nao rolling 7d
     else if(periodo==='mes') inicio = addDays(today, -29);
     const provas = provasState();
     const rows = Object.keys(provas).map(id=>{
@@ -7759,6 +7761,16 @@ function dataInicioPlanejamentoISO(){
   if(!c || !c.acompanhamentoDesde) return null;
   return dataLocalDe(c.acompanhamentoDesde);
 }
+// Permite corrigir manualmente a partir de quando o ritmo (páginas/dia, questões/dia) é
+// medido - ago/2026, pedido do Bruno. So mexe em acompanhamentoDesde (a "regua" do ritmo);
+// nao mexe em cicloStartedAt nem em nenhum historico de sessoes/paginas/questoes - so desloca
+// o INICIO da janela usada por dataInicioPlanejamentoISO/diasDesdeInicioPlanejamento.
+function setInicioPlanejamento(dataStr){
+  const c = ensureCicloDefaults();
+  if(!c || !dataStr) return;
+  c.acompanhamentoDesde = new Date(dataStr+'T00:00:00').getTime();
+  save();
+}
 // Quantos dias corridos se passaram desde o início do planejamento, contando o próprio dia
 // de início como dia 1 (nunca 0, pra não gerar divisão por zero em quem criou o ciclo hoje).
 function diasDesdeInicioPlanejamento(){
@@ -7814,6 +7826,10 @@ function folgaAtrasoHtml(folgaDias){
   if(folgaDias>0) return `<span class="meta-alvo-folga folga">+${folgaDias} dia${folgaDias===1?'':'s'} de folga no ritmo atual</span>`;
   return `<span class="meta-alvo-folga atraso">${Math.abs(folgaDias)} dia${Math.abs(folgaDias)===1?'':'s'} atrasado no ritmo atual</span>`;
 }
+// Controla se o rótulo "Data de início do planejamento" (em renderMetaDataAlvo) está em modo
+// de edição - ago/2026, pedido do Bruno pra poder corrigir manualmente acompanhamentoDesde
+// (antes só dava pra mudar direto no banco). Fica true entre o clique no lápis e Salvar/Cancelar.
+let editandoInicioPlanejamento = false;
 function renderMetaDataAlvo(){
   const tip = document.getElementById('tipMetaDataAlvo');
   if(tip) tip.innerHTML = tipIcon('meta_data_alvo');
@@ -7823,9 +7839,37 @@ function renderMetaDataAlvo(){
   if(inicioLbl){
     const iso = dataInicioPlanejamentoISO();
     const dias = diasDesdeInicioPlanejamento();
-    inicioLbl.textContent = iso
-      ? `Data de início do planejamento: ${fmtDate(iso)} (${dias} dia${dias===1?'':'s'} de acompanhamento) — o ritmo atual abaixo é medido a partir daqui, nunca de antes.`
-      : '';
+    if(editandoInicioPlanejamento){
+      inicioLbl.innerHTML = `
+        <input type="date" id="inicioPlanejamentoInput" value="${iso||''}" style="font-size:.76rem; padding:2px 6px;">
+        <button class="btn ghost sm" id="btnSalvarInicioPlanejamento">Salvar</button>
+        <button class="btn ghost sm" id="btnCancelarInicioPlanejamento">Cancelar</button>
+      `;
+      const btnSalvar = document.getElementById('btnSalvarInicioPlanejamento');
+      const btnCancelar = document.getElementById('btnCancelarInicioPlanejamento');
+      if(btnSalvar) btnSalvar.addEventListener('click', ()=>{
+        const v = document.getElementById('inicioPlanejamentoInput').value;
+        if(v){
+          setInicioPlanejamento(v);
+          toast('Data de início do planejamento atualizada.');
+        }
+        editandoInicioPlanejamento = false;
+        renderMetaDataAlvo();
+      });
+      if(btnCancelar) btnCancelar.addEventListener('click', ()=>{
+        editandoInicioPlanejamento = false;
+        renderMetaDataAlvo();
+      });
+    } else {
+      inicioLbl.innerHTML = iso
+        ? `<span>Data de início do planejamento: ${fmtDate(iso)} (${dias} dia${dias===1?'':'s'} de acompanhamento) — o ritmo atual abaixo é medido a partir daqui, nunca de antes.</span><button class="btn ghost sm" id="btnEditarInicioPlanejamento" title="Corrigir a data de início do planejamento"><svg class=ic-svg aria-hidden=true><use href=#ic-pencil></use></svg></button>`
+        : '';
+      const btnEditar = document.getElementById('btnEditarInicioPlanejamento');
+      if(btnEditar) btnEditar.addEventListener('click', ()=>{
+        editandoInicioPlanejamento = true;
+        renderMetaDataAlvo();
+      });
+    }
   }
   if(!input || !wrap) return;
   input.value = state.metaDataAlvo || '';
