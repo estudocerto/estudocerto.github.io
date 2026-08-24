@@ -4428,13 +4428,24 @@ function segundaFeiraDe(dataStr){
 // pra uma materia, mesmo saindo do mesmo peso. A v7 gera os minutos de cada materia DIRETO
 // de cicloMetaSegundos(si), eliminando essa segunda conta - a semana sempre bate com a
 // meta que a Sequencia de Estudos mostra.
-const CALENDARIO_ALGO_VERSION = 7;
+// v8 (24/08/2026, pedido do Bruno): a semana passa a respeitar `c.diasPadrao` - o "dia de
+// casa" permanente de cada matéria - em vez de redistribuir tudo do zero (round-robin global)
+// toda vez que os pesos mudam. Bump força uma regeneração única no primeiro acesso após o
+// deploy: como os pesos não mudaram desde a última geração, essa regeneração única reproduz
+// exatamente a MESMA distribuição que já estava na tela - só passa a gravar, pela primeira
+// vez, onde cada matéria caiu, como o novo diasPadrao permanente dela daqui pra frente.
+const CALENDARIO_ALGO_VERSION = 8;
 function ensureCalendarioDefaults(){
-  if(!state.calendario) state.calendario = { semanaRef:null, blocos:{}, diasPeso:null, algoVersion:null };
+  if(!state.calendario) state.calendario = { semanaRef:null, blocos:{}, diasPeso:null, algoVersion:null, diasPadrao:null };
   const c = state.calendario;
   if(!c.diasPeso) c.diasPeso = { seg:1, ter:1, qua:1, qui:1, sex:1, sab:1, dom:1 };
   if(!c.blocos) c.blocos = {};
   if(c.algoVersion===undefined) c.algoVersion = null;
+  // ago/2026 (pedido do Bruno): "dia de casa" PERMANENTE de cada matéria no Calendário da
+  // Semana - si (número) -> array de dias ('seg'..'dom'). Nunca é limpo por recalculo de peso,
+  // fechamento de rodada ou virada de semana (ver gerarSemanaCalendario) - só muda quando uma
+  // matéria ganha um dia novo (nunca teve casa antes) ou é editado manualmente.
+  if(!c.diasPadrao) c.diasPadrao = {};
   DIAS_SEMANA.forEach(d=>{ if(!Array.isArray(c.blocos[d])) c.blocos[d] = []; });
   return c;
 }
@@ -4532,6 +4543,35 @@ function intercalarItensPorMateria(itensPorMateria){
 // piso de 30min por matéria (antes garantido à parte por distribuirComPiso) já vem de graça,
 // porque arredondar15min (chamada dentro de cicloMetaSegundos) já nunca devolve menos que 30min
 // pra qualquer matéria com peso>0.
+// Achata a lista de {si,qtd,min} de decomporMateriaEmItens numa lista PLANA de durações
+// (um numero por bloco, ex.: [30,30,30,45]) - usada pra alocar direto nos dias de casa de uma
+// materia (ver diasPadrao logo abaixo), onde o agrupamento em pares de decomporMateriaEmItens
+// (pensado pro round-robin GLOBAL antigo) não faz mais diferença.
+function expandirParaDuracoes(lista){
+  const out = [];
+  lista.forEach(item=>{ for(let i=0;i<item.qtd;i++) out.push(item.min); });
+  return out;
+}
+function expandirItens(lista){
+  const out = [];
+  lista.forEach(item=>{ for(let i=0;i<item.qtd;i++) out.push({ si:item.si, duracaoMin:item.min, done:false, sessionId:null }); });
+  return out;
+}
+// ago/2026 (pedido do Bruno, confirmado em 4 perguntas): a semana deixou de ser 100%
+// redistribuída do zero a cada geração. Agora existe `c.diasPadrao[si]` - um mapa PERMANENTE
+// (nunca limpo por recalculo de peso, fechamento de rodada ou virada de semana; só muda
+// automaticamente quando uma matéria ganha um dia de casa novo, ou manualmente se um dia
+// "Replanejar" ganhar edição disso) de "em quais dias da semana essa matéria mora". Toda
+// geração daqui em diante:
+//   1. Matéria que JÁ tem dia(s) de casa: os blocos dela vão SÓ pros dias salvos, divididos o
+//      mais igual possível entre eles (round-robin estável, sempre começando do dia 0 da lista
+//      salva) - cresce ou encolhe SEM nunca pular pra um dia novo nem sumir de um dia que ainda
+//      tem pelo menos 1 bloco. Ignora a capacidade nominal do dia de propósito: o padrão manda
+//      mais que o equilíbrio entre dias.
+//   2. Matéria que NUNCA teve dia de casa (nova no ciclo, ou voltou a precisar de tempo depois
+//      de ter zerado): usa a MESMA lógica de antes (intercalação + capacidade por peso do dia,
+//      só considerando o espaço que sobrar depois de quem já tem casa) pra escolher onde ela
+//      entra - e o resultado dessa escolha vira o dia de casa PERMANENTE dela daqui pra frente.
 function gerarSemanaCalendario(forcar){
   const c = ensureCalendarioDefaults();
   const segunda = segundaFeiraDe(todayStr());
@@ -4556,42 +4596,65 @@ function gerarSemanaCalendario(forcar){
     save();
     return;
   }
-  const sequenciaItens = intercalarItensPorMateria(itensPorMateria); // array de {si, qtd, min}
-  let diasPeso = {};
-  DIAS_SEMANA.forEach(d=>{ if((c.diasPeso[d]||0)>0) diasPeso[d]=c.diasPeso[d]; });
-  if(Object.keys(diasPeso).length===0) DIAS_SEMANA.forEach(d=> diasPeso[d]=1); // fallback defensivo
-  // Capacidade dos dias derivada do total REAL de minutos que sera exibido nessa semana (que
-  // pode divergir um pouco de horasPorSemana*2 por causa do ajuste de arredondamento acima) -
-  // garante que os dias sempre tenham espaco suficiente pra tudo, sem estourar no ultimo dia.
-  const totalMinutosReal = sequenciaItens.reduce((s,it)=>s+it.qtd*it.min,0);
-  const totalBlocos = Math.max(0, Math.ceil(totalMinutosReal/30)); // unidades de 30min na semana toda (soh usado pra capacidade dos dias)
-  const blocosPorDia = distribuirInteiros(diasPeso, totalBlocos); // capacidade de cada dia, em unidades de 30min
-  function expandirItens(lista){
-    const out = [];
-    lista.forEach(item=>{ for(let i=0;i<item.qtd;i++) out.push({ si:item.si, duracaoMin:item.min, done:false, sessionId:null }); });
-    return out;
-  }
-  // Preenche cada dia ate estourar sua capacidade (em minutos) - nunca quebra um par (nem a
-  // fracao de 15min) no meio, entao um dia pode passar um pouco da capacidade quando o ultimo
-  // item que coube for maior que o espaco exato que sobrou.
-  let cursor = 0;
-  DIAS_SEMANA.forEach(d=>{
-    const capMin = (blocosPorDia[d]||0)*30;
-    const doDia = [];
-    let usadosMin = 0;
-    while(cursor<sequenciaItens.length && (usadosMin===0 || usadosMin<capMin) && capMin>0){
-      doDia.push(sequenciaItens[cursor]);
-      usadosMin += sequenciaItens[cursor].qtd*sequenciaItens[cursor].min;
-      cursor++;
-    }
-    c.blocos[d] = expandirItens(doDia);
+
+  const blocosPorDia = {}; DIAS_SEMANA.forEach(d=> blocosPorDia[d]=[]);
+
+  // 1) matérias com dia(s) de casa já salvo: alocação direta, ignora capacidade do dia
+  const comCasa = [], semCasa = {};
+  Object.keys(itensPorMateria).forEach(siStr=>{
+    const si = Number(siStr);
+    const dias = (c.diasPadrao[si]||[]).filter(d=> DIAS_SEMANA.includes(d));
+    if(dias.length) comCasa.push(si); else semCasa[si] = itensPorMateria[siStr];
   });
-  // Sobra de arredondamento (ex: ultimo dia com peso 0): joga tudo que nao coube no ultimo
-  // dia com peso>0, pra nunca perder item gerado.
-  if(cursor<sequenciaItens.length){
-    let diaDestino = DIAS_SEMANA.slice().reverse().find(d=>(c.diasPeso[d]||0)>0) || 'dom';
-    c.blocos[diaDestino] = (c.blocos[diaDestino]||[]).concat(expandirItens(sequenciaItens.slice(cursor)));
+  comCasa.forEach(si=>{
+    const dias = c.diasPadrao[si];
+    const duracoes = expandirParaDuracoes(itensPorMateria[si]);
+    duracoes.forEach((dur,i)=>{
+      const dia = dias[i % dias.length]; // round-robin estável, sempre começa do dia 0 salvo
+      blocosPorDia[dia].push({ si, duracaoMin:dur, done:false, sessionId:null });
+    });
+  });
+
+  // 2) matérias sem dia de casa ainda: mesma lógica de antes (intercalação global + capacidade
+  //    por peso do dia), só que disputando o espaço que sobrou depois do passo 1
+  if(Object.keys(semCasa).length){
+    const sequenciaItens = intercalarItensPorMateria(semCasa); // array de {si, qtd, min}
+    let diasPeso = {};
+    DIAS_SEMANA.forEach(d=>{ if((c.diasPeso[d]||0)>0) diasPeso[d]=c.diasPeso[d]; });
+    if(Object.keys(diasPeso).length===0) DIAS_SEMANA.forEach(d=> diasPeso[d]=1); // fallback defensivo
+    const totalMinutosReal = sequenciaItens.reduce((s,it)=>s+it.qtd*it.min,0);
+    const totalBlocos = Math.max(0, Math.ceil(totalMinutosReal/30));
+    const capacidadePorDia = distribuirInteiros(diasPeso, totalBlocos);
+    const novosDiasPorMateria = {}; // pra virar diasPadrao permanente no final
+    let cursor = 0;
+    DIAS_SEMANA.forEach(d=>{
+      const capMin = (capacidadePorDia[d]||0)*30;
+      let usadosMin = 0;
+      while(cursor<sequenciaItens.length && (usadosMin===0 || usadosMin<capMin) && capMin>0){
+        const item = sequenciaItens[cursor];
+        blocosPorDia[d] = blocosPorDia[d].concat(expandirItens([item]));
+        (novosDiasPorMateria[item.si] = novosDiasPorMateria[item.si]||new Set()).add(d);
+        usadosMin += item.qtd*item.min;
+        cursor++;
+      }
+    });
+    // Sobra de arredondamento (ex: ultimo dia com peso 0): joga tudo que nao coube no ultimo
+    // dia com peso>0, pra nunca perder item gerado.
+    if(cursor<sequenciaItens.length){
+      let diaDestino = DIAS_SEMANA.slice().reverse().find(d=>(c.diasPeso[d]||0)>0) || 'dom';
+      sequenciaItens.slice(cursor).forEach(item=>{
+        blocosPorDia[diaDestino] = blocosPorDia[diaDestino].concat(expandirItens([item]));
+        (novosDiasPorMateria[item.si] = novosDiasPorMateria[item.si]||new Set()).add(diaDestino);
+      });
+    }
+    // grava o dia de casa PERMANENTE de quem acabou de ganhar um agora
+    Object.keys(novosDiasPorMateria).forEach(siStr=>{
+      const si = Number(siStr);
+      c.diasPadrao[si] = DIAS_SEMANA.filter(d=> novosDiasPorMateria[si].has(d));
+    });
   }
+
+  DIAS_SEMANA.forEach(d=> c.blocos[d] = blocosPorDia[d]);
   save();
 }
 // ago/2026 (pedido do Bruno): antes, a virada de semana era 100% automatica e silenciosa,
