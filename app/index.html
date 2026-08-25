@@ -3111,6 +3111,10 @@ let _syncPushTimer = null; // timer do debounce de sincronizacao (ver secao "SIN
      de ficarem soltas ou apontando pra materia errada. */
 const POS_EDITAL_AULAS_MAP = [[0,0,0,1],[0,3,0,2],[0,4,0,4],[0,5,0,4],[0,6,0,5],[0,9,0,7],[0,12,0,9],[0,13,0,10],[0,14,0,11],[1,0,10,0],[1,1,10,1],[1,2,10,2],[1,3,10,3],[1,4,14,6],[1,5,14,7],[1,6,13,0],[1,7,7,0],[1,8,14,8],[1,9,14,0],[1,10,14,1],[1,11,14,2],[1,12,14,3],[1,13,14,4],[1,14,14,5],[1,15,8,0],[1,16,8,1],[1,17,11,1],[1,18,11,2],[1,19,11,3],[4,0,12,0],[4,1,12,1],[4,2,12,2],[4,3,12,3],[4,4,12,4],[4,5,12,5],[4,13,12,7],[4,17,12,8],[5,0,3,1],[5,1,3,2],[5,2,3,3],[5,3,3,4],[5,4,3,5],[5,8,2,6],[5,9,3,0],[7,0,16,0],[7,1,16,1],[7,2,16,2],[7,3,16,3],[7,4,16,4],[7,5,16,5],[7,6,16,6],[7,7,16,7],[8,0,6,0],[8,1,6,1],[9,0,2,10],[9,1,2,12],[9,2,2,13],[9,3,2,9],[9,5,2,9],[9,6,2,8],[9,7,2,8],[9,10,2,0],[9,11,2,1],[9,12,2,2],[9,13,2,3],[9,14,2,4],[9,15,2,5],[10,0,1,1],[10,1,1,2],[10,6,4,0],[10,7,4,1],[11,0,5,0]];
 const POS_EDITAL_SESSIONS_MAP = [[0,0,0,1],[0,1,17,0],[0,2,0,3],[0,3,0,2],[0,4,0,4],[0,5,0,4],[0,6,0,5],[0,7,0,6],[0,8,17,0],[0,9,0,7],[0,10,0,8],[0,11,17,0],[0,12,0,9],[0,13,0,10],[0,14,0,11],[1,0,10,0],[1,1,10,1],[1,2,10,2],[1,3,10,3],[1,4,14,6],[1,5,14,7],[1,6,13,0],[1,7,7,0],[1,8,14,8],[1,9,14,0],[1,10,14,1],[1,11,14,2],[1,12,14,3],[1,13,14,4],[1,14,14,5],[1,15,8,0],[1,16,8,1],[1,17,11,1],[1,18,11,2],[1,19,11,3],[2,0,17,0],[2,1,17,0],[2,2,17,0],[2,3,17,0],[2,4,17,0],[2,5,17,0],[2,6,17,0],[2,7,17,0],[2,8,17,0],[3,0,17,0],[3,1,17,0],[3,2,17,0],[3,3,17,0],[3,4,17,0],[3,5,17,0],[3,6,17,0],[3,7,17,0],[4,0,12,0],[4,1,12,1],[4,2,12,2],[4,3,12,3],[4,4,12,4],[4,5,12,5],[4,6,12,6],[4,7,12,6],[4,8,12,6],[4,9,12,6],[4,10,12,6],[4,11,12,6],[4,12,12,6],[4,13,12,7],[4,14,17,0],[4,15,17,0],[4,16,17,0],[4,17,12,8],[4,18,17,0],[4,19,17,0],[4,20,17,0],[4,21,17,0],[4,22,17,0],[5,0,3,1],[5,1,3,2],[5,2,3,3],[5,3,3,4],[5,4,3,5],[5,5,17,0],[5,6,17,0],[5,7,17,0],[5,8,2,6],[5,9,3,0],[6,0,17,0],[6,1,4,2],[6,2,4,3],[7,0,16,0],[7,1,16,1],[7,2,16,2],[7,3,16,3],[7,4,16,4],[7,5,16,5],[7,6,16,6],[7,7,16,7],[8,0,6,0],[8,1,6,1],[9,0,2,10],[9,1,2,12],[9,2,2,13],[9,3,2,9],[9,4,17,0],[9,5,2,9],[9,6,2,8],[9,7,2,8],[9,8,1,0],[9,9,2,0],[9,10,2,0],[9,11,2,1],[9,12,2,2],[9,13,2,3],[9,14,2,4],[9,15,2,5],[10,0,1,1],[10,1,1,2],[10,2,17,0],[10,3,17,0],[10,4,17,0],[10,5,17,0],[10,6,4,0],[10,7,4,1],[10,8,17,0],[11,0,5,0],[12,0,15,1],[12,1,17,0],[13,0,17,0],[13,1,17,0],[13,2,17,0],[13,3,17,0],[13,4,17,0]];
+// pageTotals da estrutura ANTIGA (pré-25/08/2026, 14 matérias) - preservado aqui só pra
+// migrateState() conseguir converter pagesRead em percentual antes de reaplicar no total da
+// apostila nova (ver comentário dentro de migrateState). Nunca usado fora da migração.
+const OLD_PAGE_TOTALS = [[{"total":123,"theory":65},{"total":96,"theory":57},{"total":100,"theory":41},{"total":106,"theory":36},{"total":114,"theory":68},{"total":34,"theory":25},{"total":67,"theory":40},{"total":78,"theory":46},{"total":144,"theory":49},{"total":163,"theory":55},{"total":129,"theory":40},{"total":110,"theory":29},{"total":119,"theory":23},{"total":230,"theory":73},{"total":69,"theory":69}],[{"total":112,"theory":48},{"total":180,"theory":88},{"total":174,"theory":74},{"total":180,"theory":109},{"total":153,"theory":70},{"total":144,"theory":83},{"total":136,"theory":84},{"total":220,"theory":131},{"total":147,"theory":95},{"total":163,"theory":105},{"total":168,"theory":102},{"total":126,"theory":101},{"total":130,"theory":75},{"total":78,"theory":44},{"total":112,"theory":68},{"total":110,"theory":50},{"total":56,"theory":30},{"total":104,"theory":104},{"total":73,"theory":4},{"total":99,"theory":54}],[{"total":165,"theory":36},{"total":235,"theory":43},{"total":251,"theory":81},{"total":181,"theory":37},{"total":157,"theory":38},{"total":177,"theory":47},{"total":132,"theory":33},{"total":146,"theory":37},{"total":3,"theory":1}],[{"total":113,"theory":67},{"total":165,"theory":66},{"total":152,"theory":76},{"total":142,"theory":111},{"total":145,"theory":108},{"total":126,"theory":126},{"total":44,"theory":30},{"total":59,"theory":31}],[{"total":43,"theory":31},{"total":33,"theory":24},{"total":37,"theory":26},{"total":78,"theory":45},{"total":44,"theory":16},{"total":131,"theory":61},{"total":84,"theory":45},{"total":110,"theory":60},{"total":101,"theory":52},{"total":71,"theory":32},{"total":62,"theory":35},{"total":70,"theory":28},{"total":96,"theory":42},{"total":102,"theory":57},{"total":55,"theory":24},{"total":104,"theory":40},{"total":59,"theory":26},{"total":31,"theory":20},{"total":86,"theory":64},{"total":80,"theory":27},{"total":82,"theory":25},{"total":87,"theory":25},{"total":169,"theory":87}],[{"total":158,"theory":76},{"total":100,"theory":74},{"total":128,"theory":87},{"total":99,"theory":39},{"total":141,"theory":72},{"total":77,"theory":32},{"total":56,"theory":28},{"total":114,"theory":52},{"total":120,"theory":80},{"total":179,"theory":72}],[{"total":72,"theory":38},{"total":92,"theory":47},{"total":79,"theory":34}],[{"total":97,"theory":83},{"total":143,"theory":128},{"total":104,"theory":93},{"total":119,"theory":102},{"total":87,"theory":76},{"total":102,"theory":89},{"total":121,"theory":98},{"total":43,"theory":33}],[{"total":111,"theory":91},{"total":64,"theory":50}],[{"total":175,"theory":129},{"total":148,"theory":81},{"total":46,"theory":22},{"total":53,"theory":5},{"total":126,"theory":79},{"total":98,"theory":16},{"total":155,"theory":27},{"total":124,"theory":7},{"total":138,"theory":68},{"total":100,"theory":58},{"total":93,"theory":50},{"total":118,"theory":67},{"total":124,"theory":69},{"total":75,"theory":50},{"total":144,"theory":69},{"total":92,"theory":37}],[{"total":99,"theory":11},{"total":105,"theory":36},{"total":131,"theory":52},{"total":149,"theory":52},{"total":86,"theory":43},{"total":78,"theory":38},{"total":154,"theory":58},{"total":210,"theory":62},{"total":155,"theory":86}],[{"total":162,"theory":105}],[{"total":95,"theory":54},{"total":110,"theory":58}],[{"total":101,"theory":51},{"total":94,"theory":51},{"total":119,"theory":83},{"total":93,"theory":58},{"total":189,"theory":128}]];
 let state = load();
 function migrateState(s){
   // compat: backups antigos nao tinham "dominated" — usamos o ultimo resultado como
@@ -3274,13 +3278,27 @@ function migrateState(s){
     const ASI_SEMPRE_ZERADO = 9; // índice novo de Administração de Sistemas de Informação
     const oldAulas = s.aulas || {};
     const newAulas = {};
+    // pagesRead do registro antigo é dimensionado pro total de PÁGINAS DA APOSTILA ANTIGA -
+    // carregar o número bruto pra uma aula nova (apostila pós-edital diferente, com total de
+    // páginas diferente) sub/superestima o quanto já foi lido. Corrige convertendo pra
+    // PERCENTUAL do total antigo e reaplicando esse percentual sobre o total novo (25/08/2026,
+    // bug reportado pelo Bruno - páginas lidas tinham caído de ~543 pra ~406 após a migração
+    // original, que usava o número bruto direto).
+    function pctPaginasAntigo(oSi, oAi, rec){
+      const oldTotal = (OLD_PAGE_TOTALS[oSi] && OLD_PAGE_TOTALS[oSi][oAi] && OLD_PAGE_TOTALS[oSi][oAi].total) || 0;
+      if(!oldTotal) return 0;
+      return Math.min(1, (rec.pagesRead||0) / oldTotal);
+    }
     POS_EDITAL_AULAS_MAP.forEach(([oSi,oAi,nSi,nAi])=>{
       if(nSi === ASI_SEMPRE_ZERADO) return; // decisão do Bruno: ASI nunca herda progresso
       const rec = oldAulas[oSi+"|"+oAi];
       if(!rec) return;
       const nk = nSi+"|"+nAi;
+      const newTotal = (CURRICULO.pageTotals[nSi] && CURRICULO.pageTotals[nSi][nAi] && CURRICULO.pageTotals[nSi][nAi].total) || 0;
+      const pagesReadRescaladas = Math.round(pctPaginasAntigo(oSi, oAi, rec) * newTotal);
       if(!newAulas[nk]){
         newAulas[nk] = JSON.parse(JSON.stringify(rec));
+        newAulas[nk].pagesRead = pagesReadRescaladas;
       }else{
         // duas aulas antigas viraram uma só nova (ex: Verdades e Mentiras + Associação
         // Lógica) - combina sem perder nenhum lado: OR pro que já foi feito, soma pros
@@ -3289,7 +3307,7 @@ function migrateState(s){
         cur.studied = !!(cur.studied || rec.studied);
         cur.attempts = (cur.attempts||0) + (rec.attempts||0);
         cur.correct = (cur.correct||0) + (rec.correct||0);
-        cur.pagesRead = Math.max(cur.pagesRead||0, rec.pagesRead||0);
+        cur.pagesRead = Math.min(newTotal, Math.max(cur.pagesRead||0, pagesReadRescaladas));
         if(rec.studiedDate && (!cur.studiedDate || rec.studiedDate < cur.studiedDate)) cur.studiedDate = rec.studiedDate;
         if(rec.lastReview && (!cur.lastReview || rec.lastReview > cur.lastReview)) cur.lastReview = rec.lastReview;
         if(rec.nextReview && (!cur.nextReview || rec.nextReview < cur.nextReview)) cur.nextReview = rec.nextReview;
@@ -3310,10 +3328,27 @@ function migrateState(s){
       const qsm = qidSubjectMap();
       (s.answerLog||[]).forEach(a=>{ if(qsm[a.qid] !== undefined) a.si = qsm[a.qid]; });
     }catch(e){}
-    s.ciclo = null;
+    // ciclo/subjectStages/subjectWeights/dashboard/calendario: resetados - não são métrica, são
+    // configuração/cache de planejamento; com 18 matérias em vez de 14 não faz sentido tentar
+    // remapear pesos ou blocos de calendário antigos (state.calendario.blocos[].si e
+    // diasPadrao[si] usam o índice ANTIGO e ficariam exibindo/marcando a matéria errada se não
+    // fossem limpos - bug reportado pelo Bruno, calendário semanal marcando conclusão errada).
+    // acompanhamentoDesde e horasPorSemana são preservados propositalmente: são a "régua" do
+    // ritmo de leitura/questões (ver dataInicioPlanejamentoISO/ensureCicloDefaults) e a meta
+    // semanal de horas, nenhum dos dois é específico de uma matéria/índice, então sobrevivem
+    // ao reset - senão a "Data de início do planejamento" que o Bruno configurou some (bug
+    // reportado por ele).
+    const acompanhamentoDesdePreservado = s.ciclo ? s.ciclo.acompanhamentoDesde : null;
+    const horasPorSemanaPreservadas = s.ciclo ? s.ciclo.horasPorSemana : null;
+    s.ciclo = acompanhamentoDesdePreservado ? {
+      acompanhamentoDesde: acompanhamentoDesdePreservado,
+      horasPorSemana: horasPorSemanaPreservadas || undefined,
+    } : null;
+    if(s.ciclo && !s.ciclo.horasPorSemana) delete s.ciclo.horasPorSemana;
     s.subjectStages = {};
     s.subjectWeights = {};
     s.dashboard = null;
+    s.calendario = null;
     s.posEditalMigrado = true;
   }
   return s;
