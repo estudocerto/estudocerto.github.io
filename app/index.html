@@ -3842,22 +3842,42 @@ function tempoTotalTeoriaApostila(si,ai, sessions){ return sumTempo((sessions||s
 // numero de "paginas lidas" DIFERENTE do progresso (somava os intervalos [inicio,fim] de cada
 // sessao de teoria, via a extinta paginasLidasViaSessoes() - podia divergir do progresso real:
 // nao contava paginas corrigidas via o campo manual sem cronometro, e podia contar de mais se o
-// usuario reabrisse uma sessao com inicio sobreposto a uma sessao anterior). Agora usa a MESMA
-// fonte que qualquer outra tela de progresso (pagesReadFor/pagesReadForSubject/pagesReadAll) -
-// so pode existir UM numero de "paginas lidas" no app inteiro, venha de onde vier.
-function ritmoLeitura(si,ai){ // segundos por pagina, ou null se ainda sem dado
-  const tempo = tempoTotalTeoriaApostila(si,ai);
-  const paginas = pagesReadFor(si,ai);
+// usuario reabrisse uma sessao com inicio sobreposto a uma sessao anterior). Isso continua valendo
+// pra PROGRESSO (pagesReadFor/pagesReadForSubject/pagesReadAll seguem sendo a UNICA fonte disso).
+// 25/08/2026 (pedido do Bruno): mas RITMO (segundos/pagina) e uma pergunta diferente - "quao
+// rapido eu realmente leio" - e sessoes marcadas catchUp (revisao rapida de conteudo ja visto,
+// ver setPagesRead/opts.catchUp) nao respondem essa pergunta: sao paginas marcadas em 1-2s, sem
+// leitura de verdade, que se entrarem aqui derrubam o ritmo artificialmente (foi o caso real do
+// Bruno: 4 sessoes catchUp de Contabilidade quase instantaneas diluiram o ritmo global pra ~16s/
+// pagina, projetando so 22h34min restantes quando a leitura real dele e ~56s/pagina). Por isso o
+// ritmo volta a somar os intervalos [inicio,fim] das PROPRIAS sessoes de teoria - mas filtrando
+// so as com catchUp!==true. Pequeno risco de imprecisao entre sessoes sobrepostas mencionado no
+// paragrafo acima permanece aceitavel aqui pq isso e so uma ESTIMATIVA (nao fonte de progresso).
+function tempoTotalTeoriaApostilaReal(si,ai){
+  return sumTempo(state.sessions.filter(s=> s.tipo==='teoria' && s.materiaIdx===si && s.apostilaIdx===ai && !s.catchUp));
+}
+function tempoTotalTeoriaMateriaReal(si){
+  return sumTempo(state.sessions.filter(s=> s.tipo==='teoria' && s.materiaIdx===si && !s.catchUp));
+}
+function tempoTotalTeoriaReal(){
+  return sumTempo(state.sessions.filter(s=> s.tipo==='teoria' && isSubjectActive(s.materiaIdx) && !s.catchUp));
+}
+function paginasViaSessoesReal(sessions){
+  return sessions.reduce((sum,s)=> sum + Math.max(0, s.paginas? (s.paginas[1]-s.paginas[0]) : 0), 0);
+}
+function ritmoLeitura(si,ai){ // segundos por pagina, ou null se ainda sem sessao real
+  const tempo = tempoTotalTeoriaApostilaReal(si,ai);
+  const paginas = paginasViaSessoesReal(state.sessions.filter(s=> s.tipo==='teoria' && s.materiaIdx===si && s.apostilaIdx===ai && !s.catchUp));
   return paginas>0 ? tempo/paginas : null;
 }
 function ritmoLeituraMateria(si){
-  const tempo = tempoTotalTeoriaMateria(si);
-  const paginas = pagesReadForSubject(si);
+  const tempo = tempoTotalTeoriaMateriaReal(si);
+  const paginas = paginasViaSessoesReal(state.sessions.filter(s=> s.tipo==='teoria' && s.materiaIdx===si && !s.catchUp));
   return paginas>0? tempo/paginas : null;
 }
 function ritmoLeituraGlobal(){
-  const tempo = tempoTotalTeoria();
-  const paginas = pagesReadAll(); // ja filtra so materias ativas, mesmo criterio de sempre
+  const tempo = tempoTotalTeoriaReal();
+  const paginas = paginasViaSessoesReal(state.sessions.filter(s=> s.tipo==='teoria' && isSubjectActive(s.materiaIdx) && !s.catchUp));
   return paginas>0? tempo/paginas : null;
 }
 // ritmo "efetivo": usa o historico da propria apostila; se nao houver, cai pro nivel
