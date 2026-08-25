@@ -3437,7 +3437,8 @@ function totalTheoryAll(){
 function pagesReadAll(){
   return Metricas.materiasAtivas().reduce((sum,{si})=> sum + pagesReadForSubject(si), 0);
 }
-function setPagesRead(si, ai, newVal){
+function setPagesRead(si, ai, newVal, opts){
+  opts = opts || {};
   const theory = theoryPages(si,ai);
   newVal = Math.max(0, Math.min(theory, Math.round(newVal)||0));
   const rec = getAula(si,ai);
@@ -3448,8 +3449,13 @@ function setPagesRead(si, ai, newVal){
   // à parte. Isso corrige de raiz uma assimetria que existia antes (so delta>0 era registrado):
   // se voce corrigir uma pagina pra menos e depois pra mais nesse mesmo dia, o saldo do dia
   // agora fecha certo, em vez de contar as paginas "de volta" como se fossem novas.
+  // 25/08/2026 (pedido do Bruno, restart pos-reset): opts.catchUp marca paginas de uma
+  // "revisao rapida" (conteudo que ele ja conhece, so esta atualizando o registro). O evento
+  // fica gravado normalmente (nada se perde), mas _paginasPorDiaMap() o ignora na soma - assim
+  // pagesRead/studied/agendamento de revisao valem igual, so o RITMO (paginas/dia) nao e
+  // distorcido por uma marcacao em lote muito mais rapida que leitura real.
   if(delta!==0){
-    state.pageEvents.push({ id: uid(), si, ai, d: todayStr(), delta, at: Date.now() });
+    state.pageEvents.push({ id: uid(), si, ai, d: todayStr(), delta, at: Date.now(), catchUp: !!opts.catchUp });
   }
   if(newVal>=theory && !rec.studied){
     rec.studied = true;
@@ -3497,10 +3503,13 @@ let _metricasVersion = 0; // bumped em save() - qualquer leitura cacheada abaixo
 let _metricasDiasCache = null, _metricasDiasCacheV = -1;
 let _metricasPaginasCache = null, _metricasPaginasCacheV = -1;
 // Mapa dia -> total de paginas naquele dia (soma de todos os deltas de pageEvents daquele dia).
+// 25/08/2026: eventos marcados catchUp (revisao rapida de conteudo ja visto) ficam FORA dessa
+// soma, de proposito - ver comentario em setPagesRead. O evento continua salvo em state.pageEvents
+// (nada se perde), so nao entra no calculo de ritmo/paginas-no-dia.
 function _paginasPorDiaMap(){
   if(_metricasPaginasCache && _metricasPaginasCacheV===_metricasVersion) return _metricasPaginasCache;
   const map = {};
-  (state.pageEvents||[]).forEach(e=>{ map[e.d] = (map[e.d]||0) + e.delta; });
+  (state.pageEvents||[]).forEach(e=>{ if(!e.catchUp) map[e.d] = (map[e.d]||0) + e.delta; });
   _metricasPaginasCache = map;
   _metricasPaginasCacheV = _metricasVersion;
   return map;
@@ -3664,7 +3673,7 @@ const Metricas = {
 /* ===================== SESSÕES DE ESTUDO / CRONÔMETRO ===================== */
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 
-function startSession(si, ai, tipo){
+function startSession(si, ai, tipo, catchUp){
   if(state.activeSession){ toast('Já existe uma sessão em andamento. Encerre-a antes de iniciar outra.'); return false; }
   state.activeSession = {
     id: uid(), si, ai, tipo, // tipo: 'teoria' | 'questoes'
@@ -3678,6 +3687,9 @@ function startSession(si, ai, tipo){
     paginaInicio: tipo==='teoria' ? (pagesReadFor(si,ai) > 0 ? pagesReadFor(si,ai) : 1) : null,
     questoesIdsCollected: [],
     modo: 'pomodoro', // sessão padrão: Pomodoro (30min foco + 10min intervalo, configurável em Ajustes)
+    // 25/08/2026: sessao de "revisao rapida" (conteudo que ja conhece) - tempo/estudado/revisao
+    // contam normal, so as paginas ficam fora do calculo de ritmo (ver setPagesRead/opts.catchUp).
+    catchUp: !!catchUp,
   };
   sessionOverlayMinimized = false; // toda sessão nova abre na tela central, não minimizada
   // 19/08/2026 (decisao do Bruno): antes, o dia era marcado "estudado" ja no INICIO do
@@ -3753,6 +3765,7 @@ function endActiveSession(extra){
     tempoLiquidoSegundos,
     paginas: null, questoesIds: null, questoesManual: null,
     origem: 'cronometro',
+    catchUp: !!a.catchUp,
   };
   if(a.tipo==='revisao'){
     // A baixa da revisao (com a avaliacao Dificil/Bom/Facil) eh feita por quem chamou,
@@ -3766,7 +3779,7 @@ function endActiveSession(extra){
     const inicio = a.paginaInicio||0;
     const fim = (extra && extra.paginaFim!=null) ? extra.paginaFim : inicio;
     sessao.paginas = [inicio, fim];
-    if(fim>inicio) setPagesRead(a.si, a.ai, fim);
+    if(fim>inicio) setPagesRead(a.si, a.ai, fim, {catchUp: !!a.catchUp});
   } else {
     if(a.questoesIdsCollected.length){
       sessao.questoesIds = a.questoesIdsCollected.slice();
@@ -3802,11 +3815,12 @@ function addManualSession(si, ai, tipo, minutos, extra){
     timestampInicio: Date.now()-tempoLiquidoSegundos*1000, timestampFim: Date.now(),
     tempoLiquidoSegundos, paginas:null, questoesIds:null, questoesManual:null,
     origem:'manual',
+    catchUp: !!extra.catchUp,
   };
   if(tipo==='teoria'){
     const inicio = extra.paginaInicio||0, fim = extra.paginaFim!=null? extra.paginaFim : inicio;
     sessao.paginas = [inicio, fim];
-    if(fim>inicio) setPagesRead(si, ai, fim);
+    if(fim>inicio) setPagesRead(si, ai, fim, {catchUp: !!extra.catchUp});
   } else {
     sessao.questoesManual = { count: extra.questoesCount||0, correct: extra.questoesCorrect||0 };
   }
@@ -9947,23 +9961,34 @@ function openStartSessionModal(si, ai, calendarRef){
         <div class="radio-opt" data-tipo="questoes"><svg class=ic-svg aria-hidden=true><use href=#ic-quiz></use></svg> Questões</div>
       </div>
     </div>
+    <div class="form-row" id="startCatchUpRow">
+      <label class="checkbox-row" style="display:flex; align-items:flex-start; gap:8px; cursor:pointer;">
+        <input type="checkbox" id="startCatchUpChk" style="margin-top:3px;">
+        <span>Revisão rápida — já vi esse conteúdo antes<br><span style="font-size:.74rem; color:var(--text-mut);">Conta tempo de estudo e marca a aula como concluída (entra na revisão), mas não conta no ritmo de páginas/dia.</span></span>
+      </label>
+    </div>
     <button class="btn block" id="startSessionGo"><svg class=ic-svg aria-hidden=true><use href=#ic-play></use></svg> Iniciar cronômetro</button>
   `;
+  const catchUpRow = document.getElementById('startCatchUpRow');
+  function syncCatchUpVisibility(){ catchUpRow.style.display = tipoSel==='teoria' ? '' : 'none'; }
+  syncCatchUpVisibility();
   body.querySelectorAll('#startTipoGroup .radio-opt').forEach(opt=>{
     opt.addEventListener('click', ()=>{
       body.querySelectorAll('#startTipoGroup .radio-opt').forEach(o=>o.classList.remove('sel'));
       opt.classList.add('sel');
       tipoSel = opt.dataset.tipo;
+      syncCatchUpVisibility();
     });
   });
   document.getElementById('startSessionGo').addEventListener('click', ()=>{
-    if(startSession(si, ai, tipoSel)){
+    const catchUp = tipoSel==='teoria' && document.getElementById('startCatchUpChk').checked;
+    if(startSession(si, ai, tipoSel, catchUp)){
       activeSessionCalendarRef = calendarRef || null;
     }
     closeStartSessionModal();
     renderTimerBar(); // abre a tela central do cronômetro (experiência principal)
     renderAll();
-    toast('Cronômetro iniciado');
+    toast(catchUp ? 'Cronômetro iniciado (revisão rápida — não conta no ritmo)' : 'Cronômetro iniciado');
   });
   document.getElementById('startSessionOverlay').classList.add('show');
 }
@@ -10096,7 +10121,13 @@ function renderTempoManualForm(){
       extraWrap.innerHTML = `<div class="form-row-2">
         <div class="form-row"><label>Página inicial</label><input type="number" id="manualPagIni" min="0" max="${theory}" value="${pagesReadFor(si,ai)}"></div>
         <div class="form-row"><label>Página final</label><input type="number" id="manualPagFim" min="0" max="${theory}" value="${pagesReadFor(si,ai)}"></div>
-      </div><div style="font-size:.74rem; color:var(--text-mut); margin-bottom:8px;">Apostila tem ${theory} páginas de teoria.</div>`;
+      </div><div style="font-size:.74rem; color:var(--text-mut); margin-bottom:8px;">Apostila tem ${theory} páginas de teoria.</div>
+      <div class="form-row">
+        <label class="checkbox-row" style="display:flex; align-items:flex-start; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="manualCatchUpChk" style="margin-top:3px;">
+          <span>Revisão rápida — já vi esse conteúdo antes<br><span style="font-size:.74rem; color:var(--text-mut);">Conta tempo de estudo e marca a aula como concluída, mas não conta no ritmo de páginas/dia.</span></span>
+        </label>
+      </div>`;
     } else {
       extraWrap.innerHTML = `<div class="form-row-2">
         <div class="form-row"><label>Questões respondidas</label><input type="number" id="manualQCount" min="0" value="0"></div>
@@ -10128,6 +10159,7 @@ function renderTempoManualForm(){
     if(tipoSel==='teoria'){
       extra.paginaInicio = parseInt(document.getElementById('manualPagIni').value,10)||0;
       extra.paginaFim = parseInt(document.getElementById('manualPagFim').value,10)||0;
+      extra.catchUp = document.getElementById('manualCatchUpChk').checked;
     } else {
       extra.questoesCount = parseInt(document.getElementById('manualQCount').value,10)||0;
       extra.questoesCorrect = parseInt(document.getElementById('manualQCorrect').value,10)||0;
