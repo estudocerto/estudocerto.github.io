@@ -3673,7 +3673,7 @@ const Metricas = {
 /* ===================== SESSÕES DE ESTUDO / CRONÔMETRO ===================== */
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 
-function startSession(si, ai, tipo, catchUp){
+function startSession(si, ai, tipo){
   if(state.activeSession){ toast('Já existe uma sessão em andamento. Encerre-a antes de iniciar outra.'); return false; }
   state.activeSession = {
     id: uid(), si, ai, tipo, // tipo: 'teoria' | 'questoes'
@@ -3687,9 +3687,6 @@ function startSession(si, ai, tipo, catchUp){
     paginaInicio: tipo==='teoria' ? (pagesReadFor(si,ai) > 0 ? pagesReadFor(si,ai) : 1) : null,
     questoesIdsCollected: [],
     modo: 'pomodoro', // sessão padrão: Pomodoro (30min foco + 10min intervalo, configurável em Ajustes)
-    // 25/08/2026: sessao de "revisao rapida" (conteudo que ja conhece) - tempo/estudado/revisao
-    // contam normal, so as paginas ficam fora do calculo de ritmo (ver setPagesRead/opts.catchUp).
-    catchUp: !!catchUp,
   };
   sessionOverlayMinimized = false; // toda sessão nova abre na tela central, não minimizada
   // 19/08/2026 (decisao do Bruno): antes, o dia era marcado "estudado" ja no INICIO do
@@ -3765,7 +3762,7 @@ function endActiveSession(extra){
     tempoLiquidoSegundos,
     paginas: null, questoesIds: null, questoesManual: null,
     origem: 'cronometro',
-    catchUp: !!a.catchUp,
+    catchUp: !!(extra && extra.catchUp),
   };
   if(a.tipo==='revisao'){
     // A baixa da revisao (com a avaliacao Dificil/Bom/Facil) eh feita por quem chamou,
@@ -3779,7 +3776,7 @@ function endActiveSession(extra){
     const inicio = a.paginaInicio||0;
     const fim = (extra && extra.paginaFim!=null) ? extra.paginaFim : inicio;
     sessao.paginas = [inicio, fim];
-    if(fim>inicio) setPagesRead(a.si, a.ai, fim, {catchUp: !!a.catchUp});
+    if(fim>inicio) setPagesRead(a.si, a.ai, fim, {catchUp: !!(extra && extra.catchUp)});
   } else {
     if(a.questoesIdsCollected.length){
       sessao.questoesIds = a.questoesIdsCollected.slice();
@@ -9961,34 +9958,23 @@ function openStartSessionModal(si, ai, calendarRef){
         <div class="radio-opt" data-tipo="questoes"><svg class=ic-svg aria-hidden=true><use href=#ic-quiz></use></svg> Questões</div>
       </div>
     </div>
-    <div class="form-row" id="startCatchUpRow">
-      <label class="checkbox-row" style="display:flex; align-items:flex-start; gap:8px; cursor:pointer;">
-        <input type="checkbox" id="startCatchUpChk" style="margin-top:3px;">
-        <span>Revisão rápida — já vi esse conteúdo antes<br><span style="font-size:.74rem; color:var(--text-mut);">Conta tempo de estudo e marca a aula como concluída (entra na revisão), mas não conta no ritmo de páginas/dia.</span></span>
-      </label>
-    </div>
     <button class="btn block" id="startSessionGo"><svg class=ic-svg aria-hidden=true><use href=#ic-play></use></svg> Iniciar cronômetro</button>
   `;
-  const catchUpRow = document.getElementById('startCatchUpRow');
-  function syncCatchUpVisibility(){ catchUpRow.style.display = tipoSel==='teoria' ? '' : 'none'; }
-  syncCatchUpVisibility();
   body.querySelectorAll('#startTipoGroup .radio-opt').forEach(opt=>{
     opt.addEventListener('click', ()=>{
       body.querySelectorAll('#startTipoGroup .radio-opt').forEach(o=>o.classList.remove('sel'));
       opt.classList.add('sel');
       tipoSel = opt.dataset.tipo;
-      syncCatchUpVisibility();
     });
   });
   document.getElementById('startSessionGo').addEventListener('click', ()=>{
-    const catchUp = tipoSel==='teoria' && document.getElementById('startCatchUpChk').checked;
-    if(startSession(si, ai, tipoSel, catchUp)){
+    if(startSession(si, ai, tipoSel)){
       activeSessionCalendarRef = calendarRef || null;
     }
     closeStartSessionModal();
     renderTimerBar(); // abre a tela central do cronômetro (experiência principal)
     renderAll();
-    toast(catchUp ? 'Cronômetro iniciado (revisão rápida — não conta no ritmo)' : 'Cronômetro iniciado');
+    toast('Cronômetro iniciado');
   });
   document.getElementById('startSessionOverlay').classList.add('show');
 }
@@ -10029,7 +10015,13 @@ function openEndSessionModal(){
         <div class="form-row"><label>Página inicial</label><input type="number" id="endPagIni" value="${a.paginaInicio||0}" min="0" max="${theory}"></div>
         <div class="form-row"><label>Página final</label><input type="number" id="endPagFim" value="${a.paginaInicio||0}" min="0" max="${theory}"></div>
       </div>
-      <div style="font-size:.74rem; color:var(--text-mut); margin-bottom:12px;">Esta apostila tem ${theory} páginas de teoria no total.</div>`;
+      <div style="font-size:.74rem; color:var(--text-mut); margin-bottom:12px;">Esta apostila tem ${theory} páginas de teoria no total.</div>
+      <div class="form-row">
+        <label class="checkbox-row" style="display:flex; align-items:flex-start; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="endCatchUpChk" style="margin-top:3px;">
+          <span>Revisão rápida — já vi esse conteúdo antes<br><span style="font-size:.74rem; color:var(--text-mut);">Conta tempo de estudo e marca a aula como concluída, mas não conta no ritmo de páginas/dia.</span></span>
+        </label>
+      </div>`;
   } else {
     const autoCount = a.questoesIdsCollected.length;
     if(autoCount>0){
@@ -10066,6 +10058,7 @@ function openEndSessionModal(){
       if(qualidadeEscolhida) extra.qualidadeRevisao = qualidadeEscolhida;
     } else if(a.tipo==='teoria'){
       extra.paginaFim = parseInt(document.getElementById('endPagFim').value,10)||0;
+      extra.catchUp = document.getElementById('endCatchUpChk').checked;
     } else if(a.questoesIdsCollected.length===0){
       extra.questoesCount = parseInt(document.getElementById('endQCount').value,10)||0;
       extra.questoesCorrect = parseInt(document.getElementById('endQCorrect').value,10)||0;
