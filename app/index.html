@@ -3093,6 +3093,24 @@ function statusDotHtml(done){
   return `<span class="status-dot${done?' done':''}"></span>`;
 }
 let _syncPushTimer = null; // timer do debounce de sincronizacao (ver secao "SINCRONIZACAO NA NUVEM" mais abaixo)
+/* ===================== MIGRAÇÃO POS-EDITAL TRANSPETRO (25/08/2026) =====================
+   Tabelas usadas pela migração única dentro de migrateState() logo abaixo. Têm que estar
+   definidas ANTES de "let state = load()" (que chama migrateState de imediato) - "const" no
+   topo do arquivo só fica pronto na hora em que a linha é executada, e load() roda antes de
+   qualquer coisa declarada depois dela no arquivo.
+   Cada linha é [siAntigo, aiAntigo, siNovo, aiNovo]. Gerada a partir do mapeamento completo
+   em contexto/planejamento/fase2-mapeamento-conteudo-2026-08-25.md (seção 12).
+   - POS_EDITAL_AULAS_MAP: só aulas de "alta confiança" (conteúdo idêntico/confiável) +
+     Inglês (preservado 1:1, fora de escopo mas sem perder progresso). Usada pra migrar
+     state.aulas (teoria concluída, tentativas, etc.) - é a mais conservadora, porque
+     controla o que conta como "já estudei" na aula nova.
+   - POS_EDITAL_SESSIONS_MAP: cobre TODAS as 131 aulas antigas (alta + média confiança +
+     identidade). Usada só pra migrar sessions (a métrica de HORAS ESTUDADAS, que não pode
+     sumir nunca) - aulas antigas cujo conteúdo foi cortado do escopo novo ou cuja apostila
+     nova ainda não foi publicada caem na matéria 17 ("Conteúdo Fora do Escopo Atual") em vez
+     de ficarem soltas ou apontando pra materia errada. */
+const POS_EDITAL_AULAS_MAP = [[0,0,0,1],[0,3,0,2],[0,4,0,4],[0,5,0,4],[0,6,0,5],[0,9,0,7],[0,12,0,9],[0,13,0,10],[0,14,0,11],[1,0,10,0],[1,1,10,1],[1,2,10,2],[1,3,10,3],[1,4,14,6],[1,5,14,7],[1,6,13,0],[1,7,7,0],[1,8,14,8],[1,9,14,0],[1,10,14,1],[1,11,14,2],[1,12,14,3],[1,13,14,4],[1,14,14,5],[1,15,8,0],[1,16,8,1],[1,17,11,1],[1,18,11,2],[1,19,11,3],[4,0,12,0],[4,1,12,1],[4,2,12,2],[4,3,12,3],[4,4,12,4],[4,5,12,5],[4,13,12,7],[4,17,12,8],[5,0,3,1],[5,1,3,2],[5,2,3,3],[5,3,3,4],[5,4,3,5],[5,8,2,6],[5,9,3,0],[7,0,16,0],[7,1,16,1],[7,2,16,2],[7,3,16,3],[7,4,16,4],[7,5,16,5],[7,6,16,6],[7,7,16,7],[8,0,6,0],[8,1,6,1],[9,0,2,10],[9,1,2,12],[9,2,2,13],[9,3,2,9],[9,5,2,9],[9,6,2,8],[9,7,2,8],[9,10,2,0],[9,11,2,1],[9,12,2,2],[9,13,2,3],[9,14,2,4],[9,15,2,5],[10,0,1,1],[10,1,1,2],[10,6,4,0],[10,7,4,1],[11,0,5,0]];
+const POS_EDITAL_SESSIONS_MAP = [[0,0,0,1],[0,1,17,0],[0,2,0,3],[0,3,0,2],[0,4,0,4],[0,5,0,4],[0,6,0,5],[0,7,0,6],[0,8,17,0],[0,9,0,7],[0,10,0,8],[0,11,17,0],[0,12,0,9],[0,13,0,10],[0,14,0,11],[1,0,10,0],[1,1,10,1],[1,2,10,2],[1,3,10,3],[1,4,14,6],[1,5,14,7],[1,6,13,0],[1,7,7,0],[1,8,14,8],[1,9,14,0],[1,10,14,1],[1,11,14,2],[1,12,14,3],[1,13,14,4],[1,14,14,5],[1,15,8,0],[1,16,8,1],[1,17,11,1],[1,18,11,2],[1,19,11,3],[2,0,17,0],[2,1,17,0],[2,2,17,0],[2,3,17,0],[2,4,17,0],[2,5,17,0],[2,6,17,0],[2,7,17,0],[2,8,17,0],[3,0,17,0],[3,1,17,0],[3,2,17,0],[3,3,17,0],[3,4,17,0],[3,5,17,0],[3,6,17,0],[3,7,17,0],[4,0,12,0],[4,1,12,1],[4,2,12,2],[4,3,12,3],[4,4,12,4],[4,5,12,5],[4,6,12,6],[4,7,12,6],[4,8,12,6],[4,9,12,6],[4,10,12,6],[4,11,12,6],[4,12,12,6],[4,13,12,7],[4,14,17,0],[4,15,17,0],[4,16,17,0],[4,17,12,8],[4,18,17,0],[4,19,17,0],[4,20,17,0],[4,21,17,0],[4,22,17,0],[5,0,3,1],[5,1,3,2],[5,2,3,3],[5,3,3,4],[5,4,3,5],[5,5,17,0],[5,6,17,0],[5,7,17,0],[5,8,2,6],[5,9,3,0],[6,0,17,0],[6,1,4,2],[6,2,4,3],[7,0,16,0],[7,1,16,1],[7,2,16,2],[7,3,16,3],[7,4,16,4],[7,5,16,5],[7,6,16,6],[7,7,16,7],[8,0,6,0],[8,1,6,1],[9,0,2,10],[9,1,2,12],[9,2,2,13],[9,3,2,9],[9,4,17,0],[9,5,2,9],[9,6,2,8],[9,7,2,8],[9,8,1,0],[9,9,2,0],[9,10,2,0],[9,11,2,1],[9,12,2,2],[9,13,2,3],[9,14,2,4],[9,15,2,5],[10,0,1,1],[10,1,1,2],[10,2,17,0],[10,3,17,0],[10,4,17,0],[10,5,17,0],[10,6,4,0],[10,7,4,1],[10,8,17,0],[11,0,5,0],[12,0,15,1],[12,1,17,0],[13,0,17,0],[13,1,17,0],[13,2,17,0],[13,3,17,0],[13,4,17,0]];
 let state = load();
 function migrateState(s){
   // compat: backups antigos nao tinham "dominated" — usamos o ultimo resultado como
@@ -3225,6 +3243,78 @@ function migrateState(s){
       (r.reviewHistory||[]).forEach(h=>{ if(!h.id) h.id = uid(); });
     });
     s.mergeIdsMigrado = true;
+  }
+  /* 25/08/2026 (Fase 3 - reconstrução pós-edital Transpetro): o curriculo.js trocou de 14
+     pra 18 matérias (estrutura do edital real, não mais os "cursos" do site do Estratégia
+     Concursos) - isso muda o SIGNIFICADO de quase todo índice si/ai já salvo. Sem esta
+     migração, progresso e horas ficariam atribuídos à matéria ERRADA silenciosamente (pior
+     que sumir). Roda UMA vez, guardada por flag; faz backup do estado INTEIRO antes de
+     mexer em qualquer coisa (recuperável em localStorage, chave abaixo, se algo der errado).
+     Ver contexto/planejamento/fase2-mapeamento-conteudo-2026-08-25.md seção 12 pro
+     detalhe/justificativa de cada aula. Regras definidas pelo Bruno em 25/08/2026:
+     - state.aulas (teoria concluída/progresso): só migra com POS_EDITAL_AULAS_MAP (só
+       "alta confiança" + Inglês). O resto começa "não estudado" na aula nova - ele acelera
+       manualmente ao reconhecer o conteúdo enquanto estuda.
+     - Exceção especial: ASI (índice novo 9) nunca herda progresso, mesmo tendo 1 aula de
+       alta confiança por conteúdo - decisão explícita dele, o indicador antigo de ASI não
+       é confiável (71% do ciclo antigo era sobretudo tempo em conteúdo fora do edital atual).
+     - sessions (horas estudadas - a métrica que NUNCA pode sumir): migra com
+       POS_EDITAL_SESSIONS_MAP, mais abrangente (alta+média+identidade). Sessões de
+       conteúdo cortado do escopo ou ainda pendente de apostila nova vão pra matéria 17
+       ("Conteúdo Fora do Escopo Atual (Pré-Edital)") - visível, preservada, só fora do
+       ciclo ativo por padrão.
+     - answerLog: recalculado via qidSubjectMap() - as próprias questões já migraram de
+       posição dentro de question_bank.js preservando o id, então isso resolve sozinho.
+     - ciclo/subjectStages/subjectWeights/dashboard: resetados - não são métrica, são
+       configuração de planejamento; com 18 matérias em vez de 14 não faz sentido tentar
+       remapear pesos antigos. O app reconstrói um ciclo novo na próxima vez que ele
+       configurar em Planejamento (nada de horas/questões é perdido nesse reset). */
+  if(!s.posEditalMigrado){
+    try{ localStorage.setItem('estudo-certo-v1-backup-pre-posedital-20260825', JSON.stringify(s)); }catch(e){}
+    const ASI_SEMPRE_ZERADO = 9; // índice novo de Administração de Sistemas de Informação
+    const oldAulas = s.aulas || {};
+    const newAulas = {};
+    POS_EDITAL_AULAS_MAP.forEach(([oSi,oAi,nSi,nAi])=>{
+      if(nSi === ASI_SEMPRE_ZERADO) return; // decisão do Bruno: ASI nunca herda progresso
+      const rec = oldAulas[oSi+"|"+oAi];
+      if(!rec) return;
+      const nk = nSi+"|"+nAi;
+      if(!newAulas[nk]){
+        newAulas[nk] = JSON.parse(JSON.stringify(rec));
+      }else{
+        // duas aulas antigas viraram uma só nova (ex: Verdades e Mentiras + Associação
+        // Lógica) - combina sem perder nenhum lado: OR pro que já foi feito, soma pros
+        // contadores, pega o mais favorável pras datas.
+        const cur = newAulas[nk];
+        cur.studied = !!(cur.studied || rec.studied);
+        cur.attempts = (cur.attempts||0) + (rec.attempts||0);
+        cur.correct = (cur.correct||0) + (rec.correct||0);
+        cur.pagesRead = Math.max(cur.pagesRead||0, rec.pagesRead||0);
+        if(rec.studiedDate && (!cur.studiedDate || rec.studiedDate < cur.studiedDate)) cur.studiedDate = rec.studiedDate;
+        if(rec.lastReview && (!cur.lastReview || rec.lastReview > cur.lastReview)) cur.lastReview = rec.lastReview;
+        if(rec.nextReview && (!cur.nextReview || rec.nextReview < cur.nextReview)) cur.nextReview = rec.nextReview;
+        cur.mastered = !!(cur.mastered || rec.mastered);
+        cur.stage = Math.max(cur.stage||0, rec.stage||0);
+        cur.reviewHistory = (cur.reviewHistory||[]).concat(rec.reviewHistory||[]);
+      }
+    });
+    s.aulas = newAulas;
+    const sessMapLookup = {};
+    POS_EDITAL_SESSIONS_MAP.forEach(([oSi,oAi,nSi,nAi])=>{ sessMapLookup[oSi+"|"+oAi] = [nSi,nAi]; });
+    (s.sessions||[]).forEach(sess=>{
+      const dest = sessMapLookup[sess.materiaIdx+"|"+sess.apostilaIdx];
+      if(dest){ sess.materiaIdx = dest[0]; sess.apostilaIdx = dest[1]; }
+      else { sess.materiaIdx = 17; sess.apostilaIdx = 0; } // fallback de segurança - nunca deixa órfã
+    });
+    try{
+      const qsm = qidSubjectMap();
+      (s.answerLog||[]).forEach(a=>{ if(qsm[a.qid] !== undefined) a.si = qsm[a.qid]; });
+    }catch(e){}
+    s.ciclo = null;
+    s.subjectStages = {};
+    s.subjectWeights = {};
+    s.dashboard = null;
+    s.posEditalMigrado = true;
   }
   return s;
 }
