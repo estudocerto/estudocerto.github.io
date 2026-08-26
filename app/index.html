@@ -570,6 +570,10 @@
   .rev-exerc-prog{display:block; margin-top:3px; font-weight:700; color:color-mix(in srgb, var(--yellow) 68%, var(--text));}
   .rev-step.exerc i{background:color-mix(in srgb, var(--yellow) 30%, transparent); color:color-mix(in srgb, var(--yellow) 66%, var(--text));}
   .rev-cal-dia-et.exerc{background:color-mix(in srgb, var(--yellow) 26%, transparent); color:color-mix(in srgb, var(--yellow) 62%, var(--text));}
+  /* ===================== FLAGS DE QUESTÕES ERRADAS (26/08/2026) ===================== */
+  .flags-grid{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;}
+  .flag-num-btn{min-width:32px; height:32px; padding:0 6px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-weight:700; font-size:.8rem; cursor:pointer;}
+  .flag-num-btn.flagged{background:var(--danger-bg); border-color:var(--danger); color:var(--danger);}
   /* ===================== REPORTAR QUESTÃO ERRADA ===================== */
   .nav-ic.report-on{background:color-mix(in srgb, var(--danger) 18%, transparent); color:var(--danger);}
   .quiz-reportada{margin:8px 0 4px; padding:8px 11px; border-radius:10px; font-size:.74rem; font-weight:600;
@@ -2895,6 +2899,38 @@ function questoesAcertosManual(si, ai){
   return state.sessions
     .filter(s=> s.tipo==='questoes' && s.materiaIdx===si && s.apostilaIdx===ai)
     .reduce((sum,s)=> sum + (s.questoesManual ? (s.questoesManual.correct||0) : 0), 0);
+}
+/* ---- FLAGS DE QUESTÕES ERRADAS (26/08/2026, pedido do Bruno) ----
+   Sem banco de questões, não dá pra saber qual questão específica ele errou - mas ele conhece
+   a numeração da própria apostila (1, 2, 3...). rec.questoesErradas guarda os NÚMEROS marcados,
+   por aula (não por sessão - persiste, pra ele só ajustar o que mudou de uma sessão pra outra).
+   Vive só pra referência dele; não entra em nenhum cálculo de métrica (contagem/acerto já vem
+   dos campos "quantas fez/quantas acertou"). */
+function buildFlagsGridHtml(si, ai){
+  const total = getAula(si,ai).questoesTotalManual||0;
+  if(total<=0){
+    return '<div class="form-row"><small style="color:var(--text-mut);">Declare o total de questões dessa apostila (aba Revisão, etapa de Exercícios) pra poder marcar quais errou.</small></div>';
+  }
+  const erradas = new Set(getAula(si,ai).questoesErradas||[]);
+  let btns = '';
+  for(let n=1;n<=total;n++){
+    btns += `<button type="button" class="flag-num-btn${erradas.has(n)?' flagged':''}" data-num="${n}">${n}</button>`;
+  }
+  return `<div class="form-row">
+    <label>Quais você errou? (opcional - toque nos números; fica marcado pra próxima vez)</label>
+    <div class="flags-grid">${btns}</div>
+  </div>`;
+}
+function wireFlagsGrid(container){
+  container.querySelectorAll('.flag-num-btn').forEach(b=>{
+    b.addEventListener('click', ()=> b.classList.toggle('flagged'));
+  });
+}
+function saveFlaggedErradas(si, ai, container){
+  const grid = container.querySelectorAll('.flag-num-btn.flagged');
+  if(container.querySelectorAll('.flag-num-btn').length===0) return; // total nao declarado, nada pra salvar
+  const rec = getAula(si,ai);
+  rec.questoesErradas = Array.from(grid).map(b=> parseInt(b.dataset.num,10));
 }
 function exerciciosDaAulaConcluidos(si, ai){
   const banco = bankFor(si, ai);
@@ -10067,7 +10103,8 @@ function openEndSessionModal(){
         <div class="form-row"><label>Quantas questões você respondeu</label><input type="number" id="endQCount" value="0" min="0"></div>
         <div class="form-row"><label>Quantas acertou</label><input type="number" id="endQCorrect" value="0" min="0"></div>
       </div>
-      <div style="font-size:.74rem; color:var(--text-mut); margin-bottom:12px;">Preencha se você resolveu questões fora do quiz do app (ex: no papel).</div>`;
+      <div style="font-size:.74rem; color:var(--text-mut); margin-bottom:12px;">Preencha se você resolveu questões fora do quiz do app (ex: no papel).</div>
+      ${buildFlagsGridHtml(a.si, a.ai)}`;
     }
   }
   html += `<button class="btn block" id="endSessionGo"><svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg> Encerrar sessão</button>`;
@@ -10075,6 +10112,7 @@ function openEndSessionModal(){
     html += `<div style="font-size:.72rem; color:var(--text-mut); text-align:center; margin-top:8px;">Encerrar sem escolher registra só o tempo, sem dar baixa na revisão.</div>`;
   }
   body.innerHTML = html;
+  if(a.tipo==='questoes' && a.questoesIdsCollected.length===0) wireFlagsGrid(body);
 
   // Na sessao de revisao, os tres botoes funcionam como "encerrar avaliando": escolher
   // uma opcao ja fecha a sessao e da baixa na revisao de uma vez so.
@@ -10097,6 +10135,7 @@ function openEndSessionModal(){
     } else if(a.questoesIdsCollected.length===0){
       extra.questoesCount = parseInt(document.getElementById('endQCount').value,10)||0;
       extra.questoesCorrect = parseInt(document.getElementById('endQCorrect').value,10)||0;
+      saveFlaggedErradas(a.si, a.ai, body);
     }
     endActiveSession(extra);
     closeEndSessionModal(true);
@@ -10160,7 +10199,9 @@ function renderTempoManualForm(){
       extraWrap.innerHTML = `<div class="form-row-2">
         <div class="form-row"><label>Questões respondidas</label><input type="number" id="manualQCount" min="0" value="0"></div>
         <div class="form-row"><label>Acertos</label><input type="number" id="manualQCorrect" min="0" value="0"></div>
-      </div>`;
+      </div>
+      ${buildFlagsGridHtml(si, ai)}`;
+      wireFlagsGrid(extraWrap);
     }
   }
   function populateAulas(){
@@ -10191,6 +10232,7 @@ function renderTempoManualForm(){
     } else {
       extra.questoesCount = parseInt(document.getElementById('manualQCount').value,10)||0;
       extra.questoesCorrect = parseInt(document.getElementById('manualQCorrect').value,10)||0;
+      saveFlaggedErradas(si, ai, document.getElementById('manualExtraFields'));
     }
     addManualSession(si, ai, tipoSel, minutos, extra);
     toast('Sessão manual registrada ');
