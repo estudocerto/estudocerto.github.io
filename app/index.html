@@ -2000,18 +2000,6 @@
     </div>
   </section>
 
-  <!-- REFAZER ERRADAS -->
-  <section class="view" id="view-refazer">
-    <div class="refazer-hero">
-      <div class="big" id="refazerTotalWrong">0</div>
-      <div class="lbl">questões erradas para refazer, em todas as matérias</div>
-      <button id="btnRefazerGlobal"><svg class=ic-svg aria-hidden=true><use href=#ic-refazer></use></svg> Refazer todas as erradas</button>
-    </div>
-    <div class="card">
-      <h2>Por matéria</h2>
-      <div id="refazerSubjList"></div>
-    </div>
-  </section>
 
   <!-- REVISÃO -->
   <section class="view" id="view-revisao">
@@ -2422,7 +2410,6 @@
   <button data-view="questoes"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3.5" width="15" height="17" rx="1.6"/><path d="M8 8.5h8M8 12h8M8 15.5h5.5"/></svg></span>Questões</button>
   <button data-view="tempo"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.3"/><path d="M12 7.5V12l3.2 2"/></svg></span>Tempo</button>
   <button data-view="planejamento"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.7" y="5" width="16.6" height="15" rx="2.2"/><path d="M3.7 9.7h16.6"/><path d="M8 3.3v3.6M16 3.3v3.6"/></svg></span>Ciclo</button>
-  <button data-view="refazer"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11A8 8 0 1 0 17.7 17"/><path d="M20 5v6h-6"/></svg></span>Refazer</button>
   <button data-view="revisao"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.5 20.5 6 17 9.5"/><path d="M3.5 11V9a3.5 3.5 0 0 1 3.5-3.5h13.5"/><path d="M7 21.5 3.5 18 7 14.5"/><path d="M20.5 13v2a3.5 3.5 0 0 1-3.5 3.5H3.5"/></svg><i class="tab-badge" id="revisaoBadge" hidden></i></span>Revisão</button>
   <button data-view="provas"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.2h8.2l4.3 4.3v13.3H6.5z"/><path d="M14.4 3.4v4.3h4.3"/><path d="M9.4 12.4h6.2M9.4 15.7h6.2"/></svg></span>Provas</button>
   <button data-view="metas"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg></span>Metas</button>
@@ -2888,13 +2875,34 @@ function scheduleNextReview(rec, si){
   rec.nextReview = addDays(ancora, intervaloEfetivo(rec, si));
 }
 /* ---- ETAPA 0: EXERCÍCIOS ----------------------------------------------------
-   A etapa se fecha sozinha quando TODAS as questões da aula tiverem sido respondidas
-   pelo menos uma vez (acertando ou errando - o que importa é ter enfrentado a questão;
-   quem errou continua sendo cobrado pela aba Refazer). Aula sem questões no banco não
-   tem como cumprir a etapa, então ela é pulada automaticamente. */
+   26/08/2026 (pedido do Bruno - banco de questões extraído arquivado por qualidade ruim):
+   a etapa costumava fechar sozinha quando TODAS as questões do banco tivessem sido respondidas
+   pelo menos uma vez. Sem banco (bankFor sempre [] agora), isso virou "responda quantas você
+   mesmo disser que a apostila tem": voce declara o total em rec.questoesTotalManual (editável
+   na aba Revisão, card de Exercícios) e vai registrando sessões de questões (tipo 'questoes',
+   contagem manual) pra essa aula; a etapa fecha sozinha quando a SOMA do que você já registrou
+   bate o total declarado - sem precisar de nenhum botão "marquei que terminei" à parte (ver
+   questoesFeitasManual). Se o total ainda não foi declarado (0/vazio), a etapa não fecha sozinha
+   - nunca mais pula direto pra revisão sem você ter dito quantas questões tem a apostila. */
+function questoesFeitasManual(si, ai){
+  return state.sessions
+    .filter(s=> s.tipo==='questoes' && s.materiaIdx===si && s.apostilaIdx===ai)
+    .reduce((sum,s)=> sum + questoesRespondidasNaSessao(s), 0);
+}
+// Acertos autorreportados dessa aula (soma de questoesManual.correct) - usado pelo % dominado
+// por item do edital, agora que não há mais banco de questões pra checar state.questions[qid].
+function questoesAcertosManual(si, ai){
+  return state.sessions
+    .filter(s=> s.tipo==='questoes' && s.materiaIdx===si && s.apostilaIdx===ai)
+    .reduce((sum,s)=> sum + (s.questoesManual ? (s.questoesManual.correct||0) : 0), 0);
+}
 function exerciciosDaAulaConcluidos(si, ai){
   const banco = bankFor(si, ai);
-  if(banco.length === 0) return true; // sem questões: nada a fazer, etapa vence sozinha
+  if(banco.length === 0){
+    const total = getAula(si,ai).questoesTotalManual||0;
+    if(total<=0) return false; // total ainda não declarado - etapa não fecha sozinha
+    return questoesFeitasManual(si,ai) >= total;
+  }
   return banco.every(q=>{
     const r = state.questions[q.id];
     return r && r.attempts > 0;
@@ -2902,11 +2910,14 @@ function exerciciosDaAulaConcluidos(si, ai){
 }
 function exerciciosProgresso(si, ai){
   const banco = bankFor(si, ai);
+  if(banco.length === 0){
+    return { feitas: questoesFeitasManual(si,ai), total: getAula(si,ai).questoesTotalManual||0, manual:true };
+  }
   const feitas = banco.filter(q=>{
     const r = state.questions[q.id];
     return r && r.attempts > 0;
   }).length;
-  return { feitas, total: banco.length };
+  return { feitas, total: banco.length, manual:false };
 }
 // Uma aula está na etapa de exercícios quando já teve a teoria concluída mas ainda
 // não passou do estágio 0. Usado pra separar "fazer exercícios" de "revisar" na agenda.
@@ -3477,9 +3488,7 @@ function setPagesRead(si, ai, newVal, opts){
 function avisoTeoriaConcluida(si, ai, rec){
   const banco = bankFor(si, ai);
   if(banco.length === 0){
-    verificarEtapaExercicios(true);
-    const r2 = getAula(si, ai);
-    toast("Teoria concluída — 1ª revisão em "+fmtDate(r2.nextReview)+"");
+    toast("Teoria concluída — na aba Revisão, diga quantas questões essa apostila tem, pra registrar seu progresso nos Exercícios (prazo 48h)");
     return;
   }
   toast("Teoria concluída Próximo passo: fazer as "+banco.length+" questões desta apostila até "+fmtDate(rec.nextReview)+" (48h)");
@@ -3578,80 +3587,45 @@ const Metricas = {
     const qtd = (state.answerLog||[]).filter(a=> a.d>=corte).length;
     return qtd/divisor;
   },
-  // ---- DOMINIO DE QUESTOES (19/08/2026, decisao do Bruno) ----
-  // Unica funcao que calcula "quantas questoes distintas voce ja tentou" e "quantas ja domina"
-  // (acertou alguma vez) - substitui computeMastery()/subjectMastery(si), que faziam a MESMA
-  // conta de dois jeitos diferentes (uma via qidSubjectMap+isSubjectActive sobre state.questions,
-  // outra lendo QUESTION_BANK[si] direto) - risco de divergencia futura, mesmo sem bug hoje.
-  // Sem scope.si: soma so materias ATIVAS (mesmo criterio de sempre pros agregados gerais).
-  // Com scope.si: soma so aquela materia, SEM filtrar por ativa - se voce esta pedindo o
-  // dominio de uma materia especifica, quer ver o numero dela mesmo que esteja desativada.
+  // ---- QUESTOES MANUAIS (26/08/2026, banco extraído arquivado - qualidade ruim vs. apostila
+  // real, a pedido do Bruno) ----
+  // dominioQuestoes/tentativasQuestoes/acertosQuestoes usavam state.questions[qid], só existente
+  // via o quiz automático (banco de questões). Sem banco, isso não gera mais dado nenhum. As 3
+  // funções abaixo passam a somar as sessões tipo='questoes' que você registra manualmente
+  // (quantas fez/quantas acertou, por matéria+aula - ver questoesRespondidasNaSessao). Isso muda
+  // o SENTIDO de "domínio": antes era "% de questões distintas que você já acertou alguma vez"
+  // (uma métrica monotônica, só sobe); agora é "% de acerto acumulado nas questões que você
+  // registrou" (pode subir ou descer, é uma taxa de acerto real, não mais um contador de
+  // domínio permanente). Mantém os mesmos nomes de campo (seen/dominated/pct, attempts/correct)
+  // pra não precisar mudar toda tela que já lê esse formato.
+  _questoesManuaisFiltradas(si){
+    return state.sessions.filter(s=>{
+      if(s.tipo!=='questoes') return false;
+      if(si!=null) return s.materiaIdx===si;
+      return isSubjectActive(s.materiaIdx);
+    });
+  },
   dominioQuestoes(scope){
     const si = scope && scope.si!=null ? scope.si : null;
     let seen=0, dominated=0;
-    if(si!=null){
-      const aulas = (window.QUESTION_BANK && QUESTION_BANK[si]) || [];
-      aulas.forEach(qs=> qs.forEach(q=>{
-        const r = state.questions[q.id];
-        if(r && r.attempts){ seen++; if(r.dominated) dominated++; }
-      }));
-    } else {
-      const qsi = qidSubjectMap();
-      Object.entries(state.questions||{}).forEach(([qid,r])=>{
-        const s = qsi[qid];
-        if(s!=null && !isSubjectActive(s)) return;
-        if(r && r.attempts){ seen++; if(r.dominated) dominated++; }
-      });
-    }
+    this._questoesManuaisFiltradas(si).forEach(s=>{
+      seen += questoesRespondidasNaSessao(s);
+      dominated += s.questoesManual ? (s.questoesManual.correct||0) : 0;
+    });
     return { seen, dominated, pct: seen? Math.round(dominated/seen*100) : null };
   },
-  // ---- TENTATIVAS DE QUESTOES, NAO DISTINTAS (19/08/2026, pedido do Bruno) ----
-  // Diferente de dominioQuestoes().seen (que conta cada questao 1 vez, nao importa quantas
-  // tentativas), aqui e o total de vezes que voce respondeu QUALQUER questao, contando
-  // repetidas - "quantas questoes eu respondi", no sentido de volume de pratica. Fonte:
-  // state.questions[qid].attempts, o contador por questao (unica fonte, so incrementado em
-  // recordAnswer) - aqui e so a soma, mesmo criterio de escopo/materia-ativa do dominioQuestoes.
+  // Volume de prática (quantas questões você registrou ao todo, com repetição de sessão em
+  // sessão - não é "distintas", é soma bruta, igual sempre foi).
   tentativasQuestoes(scope){
     const si = scope && scope.si!=null ? scope.si : null;
     let total = 0;
-    if(si!=null){
-      const aulas = (window.QUESTION_BANK && QUESTION_BANK[si]) || [];
-      aulas.forEach(qs=> qs.forEach(q=>{
-        const r = state.questions[q.id];
-        if(r) total += (r.attempts||0);
-      }));
-    } else {
-      const qsi = qidSubjectMap();
-      Object.entries(state.questions||{}).forEach(([qid,r])=>{
-        const s = qsi[qid];
-        if(s!=null && !isSubjectActive(s)) return;
-        total += (r.attempts||0);
-      });
-    }
+    this._questoesManuaisFiltradas(si).forEach(s=> total += questoesRespondidasNaSessao(s));
     return total;
   },
-  // ---- ACERTOS DE QUESTOES (19/08/2026, decisao do Bruno) ----
-  // Mesmo padrao de escopo do tentativasQuestoes, mas soma state.questions[qid].correctCount
-  // em vez de .attempts - "quantas dessas tentativas foram resposta certa". Existia calculada
-  // separadamente em subjectAccuracy(si) e computeTotals() (Painel) - unificado aqui pra ficar
-  // uma fonte so, junto com tentativasQuestoes.
   acertosQuestoes(scope){
     const si = scope && scope.si!=null ? scope.si : null;
     let total = 0;
-    if(si!=null){
-      const aulas = (window.QUESTION_BANK && QUESTION_BANK[si]) || [];
-      aulas.forEach(qs=> qs.forEach(q=>{
-        const r = state.questions[q.id];
-        if(r) total += (r.correctCount||0);
-      }));
-    } else {
-      const qsi = qidSubjectMap();
-      Object.entries(state.questions||{}).forEach(([qid,r])=>{
-        const s = qsi[qid];
-        if(s!=null && !isSubjectActive(s)) return;
-        total += (r.correctCount||0);
-      });
-    }
+    this._questoesManuaisFiltradas(si).forEach(s=> total += s.questoesManual ? (s.questoesManual.correct||0) : 0);
     return total;
   },
   // ---- MATERIAS ATIVAS (19/08/2026, decisao do Bruno) ----
@@ -3796,6 +3770,10 @@ function endActiveSession(extra){
   save();
   sincronizarBlocosSemana();
   checkCicloCompletion();
+  // 26/08/2026: sessao de questoes pode ter acabado de bater o total declarado manualmente
+  // pra etapa de Exercicios (ver questoesFeitasManual) - roda a verificacao aqui tambem, nao
+  // so no quiz antigo, senao a etapa nunca fecharia sozinha nesse fluxo novo.
+  if(a.tipo==='questoes') verificarEtapaExercicios();
   return sessao;
 }
 function cancelActiveSession(){
@@ -3825,6 +3803,7 @@ function addManualSession(si, ai, tipo, minutos, extra){
   save();
   sincronizarBlocosSemana(); // lancamento manual tambem credita blocos pendentes da semana - ver comentario da funcao
   checkCicloCompletion();
+  if(tipo==='questoes') verificarEtapaExercicios(); // ver comentario equivalente em endActiveSession
   return sessao;
 }
 
@@ -3955,8 +3934,13 @@ function tempoRestanteTotalTeoria(){
 function tempoRestanteQuestoesApostila(si,ai){
   const ritmo = ritmoResolucaoEfetivo(si,ai);
   if(ritmo==null) return null;
-  const totalQ = bankFor(si,ai).length;
-  const respondidas = distinctAnsweredForAula(si,ai);
+  const banco = bankFor(si,ai);
+  // 26/08/2026: sem banco, "quantas questões faltam" usa o total que o Bruno declarou no card
+  // de Exercícios (ver questoesTotalManual). Se ele ainda não declarou nada, retorna null (sem
+  // dado) em vez de 0 - 0 não declarado não é "nada restante", é "ainda não sei quanto falta".
+  const totalQ = banco.length || (getAula(si,ai).questoesTotalManual||0);
+  if(totalQ<=0) return null;
+  const respondidas = banco.length ? distinctAnsweredForAula(si,ai) : questoesFeitasManual(si,ai);
   const faltam = Math.max(0, totalQ - respondidas);
   return faltam*ritmo;
 }
@@ -4111,11 +4095,23 @@ function answerLogInWindow(si, days, offsetDays){
   const start = addDays(end, -(days-1));
   return (state.answerLog||[]).filter(a=> a.si===si && a.d>=start && a.d<=end);
 }
+// 26/08/2026: sem banco de questões, answerLog para de crescer (só era alimentado pelo quiz
+// automático). taxaAcertoJanela passa a agregar as sessões manuais de questões daquela matéria
+// dentro da janela de data (mesmo campo timestampFim/dataLocalDe usado em todo o resto do app
+// pra "em que dia essa sessão aconteceu").
+function questoesManualNaJanela(si, days, offsetDays){
+  const end = addDays(todayStr(), -offsetDays);
+  const start = addDays(end, -(days-1));
+  return state.sessions.filter(s=> s.tipo==='questoes' && s.materiaIdx===si &&
+    dataLocalDe(s.timestampFim)>=start && dataLocalDe(s.timestampFim)<=end);
+}
 function taxaAcertoJanela(si, days, offsetDays){
-  const log = answerLogInWindow(si, days, offsetDays);
-  if(!log.length) return null;
-  const correct = log.filter(a=>a.correct).length;
-  return { attempts: log.length, correct, pct: Math.round(correct/log.length*100) };
+  const sessions = questoesManualNaJanela(si, days, offsetDays);
+  if(!sessions.length) return null;
+  let attempts=0, correct=0;
+  sessions.forEach(s=>{ attempts += questoesRespondidasNaSessao(s); correct += s.questoesManual ? (s.questoesManual.correct||0) : 0; });
+  if(!attempts) return null;
+  return { attempts, correct, pct: Math.round(correct/attempts*100) };
 }
 function tendenciaAcertoMateria(si, janelaDias){
   janelaDias = janelaDias || 30;
@@ -5769,7 +5765,10 @@ function computeDominioEdital(){
   const coberturaTeoria = totalTeoria>0 ? (pagesReadAll()/totalTeoria) : 0;
   const totalQ = totalQuestoesAll();
   const m = computeMastery();
-  const coberturaQuestoes = totalQ>0 ? (m.dominated/totalQ) : 0;
+  // Math.min(1,...) — 26/08/2026: com dados autorreportados (ver totalQuestoesAll), nada
+  // impede o Bruno relatar mais acertos acumulados (revisões repetidas) do que o total que ele
+  // mesmo declarou pra apostila; trava em 100% em vez de estourar.
+  const coberturaQuestoes = totalQ>0 ? Math.min(1, m.dominated/totalQ) : 0;
   const pct = Math.round(((coberturaTeoria+coberturaQuestoes)/2)*100);
   return {
     pct,
@@ -5778,21 +5777,21 @@ function computeDominioEdital(){
     mastery: m,
   };
 }
-// Total de questoes cadastradas no banco, somando so as materias ativas no ciclo — usado pela
-// calculadora de "meta por data alvo" (aba Metas) pra saber quantas questoes ainda faltam.
+// 26/08/2026: sem banco de questões (arquivado), "total de questões" não é mais um catálogo
+// fixo - passa a ser a SOMA do que o Bruno for declarando, aula por aula, no card de Exercícios
+// da aba Revisão (rec.questoesTotalManual - ver exerciciosProgresso). Cresce à medida que ele
+// for estudando/declarando, em vez de vir pronto do banco extraído. Mantém a mesma função de
+// antes: denominador fixo do "Taxa de Domínio"/"Domínio do edital", pra não inflar a 100% com
+// só 1-2 questões respondidas.
 function totalQuestoesAll(){
   let total=0;
   Metricas.materiasAtivas().forEach(({s,si})=>{
-    s.aulas.forEach((a,ai)=>{ total+=bankFor(si,ai).length; });
+    s.aulas.forEach((a,ai)=>{ total += bankFor(si,ai).length || (getAula(si,ai).questoesTotalManual||0); });
   });
   return total;
 }
-// Total de questoes cadastradas no banco para UMA materia (todas as aulas dela), independente
-// de quantas ja foram tentadas — usado pelo widget "Taxa de Domínio" (ago/2026, bug reportado
-// pelo Bruno: com poucas questoes tentadas e todas certas, dominadas/tentadas dava 100%, o que
-// nao significa "domino a materia". Mesma logica ja usada em computeDominioEdital().
 function totalQuestoesForSubject(si){
-  return SUBJECTS[si].aulas.reduce((sum,a,ai)=> sum + bankFor(si,ai).length, 0);
+  return SUBJECTS[si].aulas.reduce((sum,a,ai)=> sum + (bankFor(si,ai).length || (getAula(si,ai).questoesTotalManual||0)), 0);
 }
 function subjectMastery(si){
   return Metricas.dominioQuestoes({si});
@@ -7216,7 +7215,10 @@ function renderAulasDaMateria(siAlvo, filter){
           </div>
         </div>`;
       } else {
-        quizHtml = `<div class="quiz-empty-note">Sem questões extraídas para esta aula.</div>`;
+        // 26/08/2026: banco de questões extraído foi arquivado (qualidade ruim vs. apostila
+        // real, a pedido do Bruno) - agora questões são sempre registradas manualmente, na
+        // etapa de Exercícios (aba Revisão) ou numa sessão de questões avulsa.
+        quizHtml = `<div class="quiz-empty-note">Questões registradas manualmente — veja a etapa de Exercícios na aba Revisão, ou inicie uma sessão de questões acima.</div>`;
       }
       const apostilaUrl = apostilaHref(si,ai);
       const apostilaRel = apostilaRelPath(si,ai);
@@ -7469,10 +7471,18 @@ function renderRevisao(){
       }).join('<span class="rev-step-sep">›</span>');
 
       let badge, chamada;
+      const pr = exerc ? exerciciosProgresso(it.si, it.ai) : null;
       if(exerc){
-        const pr = exerciciosProgresso(it.si, it.ai);
-        badge = `<span class="stage-badge exerc" title="Ao terminar a teoria, o próximo passo é fazer os exercícios desta apostila, em até 48 horas. A etapa fecha sozinha quando você responder todas as questões."><svg class=ic-svg aria-hidden=true><use href=#ic-pencil></use></svg> Exercícios · 48h</span>`;
-        chamada = `<small class="rev-exerc-prog">${pr.feitas}/${pr.total} questões respondidas</small>`;
+        badge = `<span class="stage-badge exerc" title="Ao terminar a teoria, o próximo passo é fazer os exercícios desta apostila, em até 48 horas. Diga quantas questões a apostila tem e registre o que for fazendo - a etapa fecha sozinha quando bater o total."><svg class=ic-svg aria-hidden=true><use href=#ic-pencil></use></svg> Exercícios · 48h</span>`;
+        // 26/08/2026: sem banco de questões (arquivado), o total não vem mais contado
+        // automaticamente - o Bruno declara aqui quantas questões a apostila tem, e o
+        // progresso é a soma do que ele for registrando em sessões de questões dessa aula
+        // (ver questoesFeitasManual/exerciciosDaAulaConcluidos).
+        chamada = `<small class="rev-exerc-prog">
+          <span class="rev-exerc-total-lbl">Total de questões da apostila:</span>
+          <input type="number" min="0" class="rev-exerc-total-inp" data-si="${it.si}" data-ai="${it.ai}" value="${pr.total||''}" placeholder="0" style="width:64px; margin:0 4px;">
+          <span>· ${pr.feitas}/${pr.total||'?'} registradas</span>
+        </small>`;
       } else {
         badge = `<span class="stage-badge">${it.rec.stage}ª revisão · ${dias}d</span>`;
         chamada = '';
@@ -7485,19 +7495,32 @@ function renderRevisao(){
           ${chamada}
           <div class="rev-plano">${plano}</div>
         </div>`;
+      if(exerc){
+        const totalInp = div.querySelector('.rev-exerc-total-inp');
+        totalInp.addEventListener('change', ()=>{
+          const rec = getAula(it.si, it.ai);
+          rec.questoesTotalManual = Math.max(0, parseInt(totalInp.value,10)||0);
+          save();
+          verificarEtapaExercicios();
+          renderRevisao();
+        });
+      }
       const acts = document.createElement('div');
       acts.className = 'rev-acts';
       if(exerc){
-        // Na etapa de exercicios nao existe avaliacao Dificil/Medio/Facil: o unico caminho
-        // eh responder as questoes da aula. A baixa acontece sozinha na ultima resposta.
+        // 26/08/2026: sem banco de questões, não tem mais quiz pra abrir aqui - o botão só
+        // inicia uma sessão de questões (cronômetro) pra essa aula; ao encerrar, você registra
+        // quantas fez e quantas acertou (mesmo formulário manual já usado em qualquer sessão
+        // de questões). A etapa fecha sozinha quando a soma bater o total declarado acima.
         const bEx = document.createElement('button');
         bEx.className = 'rev-q start';
-        bEx.innerHTML = '<svg class=ic-svg aria-hidden=true><use href=#ic-pencil></use></svg> Fazer exercícios';
-        bEx.title = 'Abrir as questões desta aula. A etapa se conclui sozinha quando você responder todas.';
+        bEx.innerHTML = '<svg class=ic-svg aria-hidden=true><use href=#ic-pencil></use></svg> Registrar questões feitas';
+        bEx.title = 'Inicia uma sessão de questões pra essa aula. Ao encerrar, registre quantas fez e quantas acertou.';
         bEx.addEventListener('click', ()=>{
-          const banco = bankFor(it.si, it.ai);
-          if(banco.length===0){ concluirEtapaExercicios(it.si, it.ai); renderRevisao(); return; }
-          startQuiz(banco, SUBJECTS[it.si].name+' — '+it.aula);
+          if(startSession(it.si, it.ai, 'questoes')){
+            renderTimerBar();
+            renderAll();
+          }
         });
         acts.appendChild(bEx);
       } else {
@@ -8237,13 +8260,23 @@ function renderEdital(){
       totalItens++;
       if(coberto){ itensCobertos++; blocoCobertos++; }
 
+      // 26/08/2026: sem banco, "questões dominadas" desse item passa a somar o total que o
+      // Bruno declarou (rec.questoesTotalManual) e os acertos que ele registrou, aula por aula
+      // (Math.min por aula evita que revisões repetidas estourem 100% num item só).
       let questTotal = 0, questDominadas = 0;
       it.aulas.forEach(([si,ai])=>{
-        bankFor(si,ai).forEach(q=>{
-          questTotal++;
-          const r = state.questions[q.id];
-          if(r && r.dominated) questDominadas++;
-        });
+        const bq = bankFor(si,ai);
+        if(bq.length){
+          bq.forEach(q=>{
+            questTotal++;
+            const r = state.questions[q.id];
+            if(r && r.dominated) questDominadas++;
+          });
+        } else {
+          const totalDecl = getAula(si,ai).questoesTotalManual||0;
+          questTotal += totalDecl;
+          questDominadas += Math.min(totalDecl, questoesAcertosManual(si,ai));
+        }
       });
       const questPct = questTotal>0 ? Math.round(questDominadas/questTotal*100) : null;
       return { it, teoriaTotal, teoriaFeitas, coberto, questTotal, questDominadas, questPct };
@@ -8270,7 +8303,7 @@ function renderEdital(){
 
       const questHtml = questTotal>0
         ? `<span class="edital-status"><span class="status-dot ${questPct===100?'done':''}"></span>Questões: <b>${questPct}%</b> dominadas (${questDominadas}/${questTotal})</span>`
-        : `<span class="edital-status">Sem questões extraídas pra esta parte ainda</span>`;
+        : `<span class="edital-status">Questões ainda não registradas pra esta parte</span>`;
 
       bodyHtml += `
         <div class="edital-item ${coberto?'coberto':''}">
@@ -8920,30 +8953,12 @@ function initUpdateCheck(){
 }
 initUpdateCheck();
 
-/* ===================== REFAZER ERRADAS ===================== */
-function renderRefazer(){
-  const totalWrong = allWrongQuestions().length;
-  document.getElementById('refazerTotalWrong').textContent = totalWrong;
-  const wrap = document.getElementById('refazerSubjList');
-  const rows = SUBJECTS.map((s,si)=>({s,si,wrong:wrongQuestionsForSubject(si)})).filter(r=>r.wrong.length>0);
-  if(rows.length===0){
-    wrap.innerHTML = '<div class="empty">Nenhuma questão errada pendente. Responda questões nas aulas e o que você errar aparece aqui para refazer.</div>';
-  } else {
-    wrap.innerHTML = "";
-    rows.forEach(r=>{
-      const div = document.createElement('div');
-      div.className='refazer-subj';
-      div.innerHTML = `<div class="nm">${r.s.name}</div><div class="cnt">${r.wrong.length}</div>`;
-      div.addEventListener('click', ()=> startQuiz(r.wrong, r.s.name+' · Refazer erradas'));
-      wrap.appendChild(div);
-    });
-  }
-}
-document.getElementById('btnRefazerGlobal').addEventListener('click', ()=>{
-  const all = allWrongQuestions();
-  if(all.length===0){ toast('Nenhuma questão errada por enquanto'); return; }
-  startQuiz(all, 'Refazer todas as erradas');
-});
+/* ===================== REFAZER ERRADAS =====================
+   26/08/2026: aba removida a pedido do Bruno junto com o arquivamento do banco de questões
+   extraído (motor de extração não confiável vs. apostila real) - sem rastreio questão por
+   questão, não tem como saber "qual questão específica você errou" pra oferecer de novo.
+   allWrongQuestions()/wrongQuestionsForSubject() continuam existindo (usadas em outros
+   lugares que já degradam sozinhos pra vazio com banco arquivado), só a aba dedicada saiu. */
 
 /* ===================== PROVAS ANTERIORES =====================
    Aqui a prova NAO e reescrita em texto: cada questao e lida na propria pagina
@@ -10861,7 +10876,6 @@ function renderAll(skipMaterias){
   renderPainel();
   if(!skipMaterias) renderMaterias(document.getElementById('searchBox').value);
   renderQuestoes();
-  renderRefazer();
   renderRevisao();
   renderMetas();
   renderEdital();
