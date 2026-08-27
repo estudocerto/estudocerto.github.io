@@ -570,6 +570,13 @@
   .rev-exerc-prog{display:block; margin-top:3px; font-weight:700; color:color-mix(in srgb, var(--yellow) 68%, var(--text));}
   .rev-step.exerc i{background:color-mix(in srgb, var(--yellow) 30%, transparent); color:color-mix(in srgb, var(--yellow) 66%, var(--text));}
   .rev-cal-dia-et.exerc{background:color-mix(in srgb, var(--yellow) 26%, transparent); color:color-mix(in srgb, var(--yellow) 62%, var(--text));}
+  /* ===================== SUB-NAVEGAÇÃO DENTRO DE UMA ABA (26/08/2026) =====================
+     Usado pra agrupar telas que antes eram abas próprias do menu principal (ex.: Edital
+     dentro de Matérias) sem virar uma troca de view completa - só alterna dois blocos
+     dentro da MESMA aba. */
+  .mat-subnav{display:flex; gap:8px; margin-bottom:14px; border-bottom:1px solid var(--border);}
+  .mat-subnav-btn{flex:1; padding:10px 4px; background:none; border:none; border-bottom:2px solid transparent; font-weight:700; font-size:.86rem; color:var(--text-mut); cursor:pointer;}
+  .mat-subnav-btn.active{color:var(--green-dark); border-bottom-color:var(--green-dark);}
   /* ===================== FLAGS DE QUESTÕES ERRADAS (26/08/2026) ===================== */
   .flags-grid{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;}
   .flag-num-btn{min-width:32px; height:32px; padding:0 6px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-weight:700; font-size:.8rem; cursor:pointer;}
@@ -1967,102 +1974,105 @@
     <div id="dashAddWrap" style="display:none; margin-top:2px;">
       <button class="btn block" id="btnAddWidget"><svg class=ic-svg aria-hidden=true><use href=#ic-plus></use></svg> Adicionar métrica</button>
     </div>
+
+    <!-- 26/08/2026: "Tempo" era uma aba própria no menu principal - vira detalhamento
+         dobrável aqui dentro do Painel (pedido do Bruno, simplificação da IA do app). Todo
+         o conteúdo/ids de dentro são os mesmos de sempre, só a moldura mudou. -->
+    <details class="card recolhivel" id="painelTempoDetalhe">
+      <summary><h2>Ver detalhamento de tempo</h2><span class="marcador" aria-hidden="true"></span></summary>
+      <div class="card" id="tempoActiveCard" style="display:none;">
+        <h2>Sessão em andamento</h2>
+        <div id="tempoActiveInfo"></div>
+      </div>
+
+      <div class="card">
+        <h2>Resumo geral</h2>
+        <div class="stat-row" id="tempoResumoRow"></div>
+      </div>
+
+      <div class="card">
+        <h2>Estimativas de tempo restante</h2>
+        <div class="stat-row" id="tempoEstimativasRow"></div>
+      </div>
+
+      <div class="card">
+        <h2>Distribuição do tempo por matéria</h2>
+        <div id="tempoDistribuicao"></div>
+        <div class="empty" style="padding:10px 0 0; text-align:left;">O peso de cada matéria (usado para montar o Ciclo de Estudos) agora é configurado na aba <b>Planejamento</b>, em "Replanejar".</div>
+      </div>
+
+      <div class="card">
+        <h2>Consistência <span id="tipConsistencia"></span></h2>
+        <div id="tempoConsistencia"></div>
+      </div>
+
+      <!-- 26/08/2026 (simplificação de IA): os widgets mais analíticos ficam escondidos por
+           padrão no modo simples (toggle em Ajustes) - ver applyModoSimples. -->
+      <div id="painelAvancado">
+        <div class="card">
+          <h2>Tendência de ritmo <span id="tipTendencia"></span></h2>
+          <div id="tempoTendencia"></div>
+        </div>
+
+        <div class="card">
+          <h2>Análise de desempenho por matéria <span id="tipAnaliseDesempenho"></span></h2>
+          <div id="tempoDesvioChart"></div>
+          <div id="tempoAnaliseGeral"></div>
+        </div>
+      </div>
+
+      <details class="card recolhivel">
+        <summary><h2>Detalhe por matéria</h2><span class="marcador" aria-hidden="true"></span></summary>
+        <div id="tempoPorMateria"></div>
+      </details>
+
+      <div class="card">
+        <h2>Lançar sessão manualmente</h2>
+        <div id="tempoManualForm"></div>
+      </div>
+
+      <details class="card recolhivel">
+        <summary><h2>Histórico de sessões <span class="cnt" id="tempoHistCount"></span></h2><span class="marcador" aria-hidden="true"></span></summary>
+        <div id="tempoHistorico"></div>
+      </details>
+    </details>
   </section>
 
   <!-- MATÉRIAS -->
   <section class="view" id="view-materias">
-    <input class="search" id="searchBox" placeholder="Buscar aula ou matéria">
-    <div id="materiasGrid"></div>
-    <div id="materiaDetalhe" hidden>
-      <button type="button" class="btn ghost sm mat-voltar" id="matVoltar">◀ Todas as matérias</button>
-      <div id="matDetHead"></div>
-      <div id="matDetInfo"></div>
-      <div id="matDetAcoes"></div>
-      <div id="materiasList"></div>
+    <!-- 26/08/2026: sub-navegação interna (pedido do Bruno, simplificação da IA do app) -
+         "Por matéria" é o conteúdo de sempre; "Edital" era uma aba própria no menu principal,
+         agora é uma seção inteira aqui dentro (não um filtro dentro de "Por matéria"). -->
+    <div class="mat-subnav" id="materiasSubNav">
+      <button type="button" class="mat-subnav-btn active" data-sub="porMateria">Por matéria</button>
+      <button type="button" class="mat-subnav-btn" data-sub="edital">Edital</button>
+    </div>
+    <div id="materiasSubPorMateria">
+      <input class="search" id="searchBox" placeholder="Buscar aula ou matéria">
+      <div id="materiasGrid"></div>
+      <div id="materiaDetalhe" hidden>
+        <button type="button" class="btn ghost sm mat-voltar" id="matVoltar">◀ Todas as matérias</button>
+        <div id="matDetHead"></div>
+        <div id="matDetInfo"></div>
+        <div id="matDetAcoes"></div>
+        <div id="materiasList"></div>
+      </div>
+    </div>
+    <div id="materiasSubEdital" hidden>
+      <div class="card" id="editalResumoCard">
+        <h2>Cobertura do edital</h2>
+        <div style="font-size:.85rem; color:var(--text-mut); margin-bottom:8px;" id="editalResumoTxt"></div>
+        <div class="bar"><i id="editalResumoBar" style="width:0%"></i></div>
+      </div>
+      <div id="editalList"></div>
     </div>
   </section>
 
   <!-- QUESTÕES: praticar por matéria, por apostila (aula) ou todas juntas -->
-  <section class="view" id="view-questoes">
-    <div id="questoesResumo"></div>
-    <div class="card" style="margin-bottom:16px;">
-      <h2>Praticar</h2>
-      <div class="settings-sub" style="margin-top:0;">Responda questões de todas as matérias ativas de uma vez, ou escolha abaixo uma matéria específica ou uma apostila (aula) específica.</div>
-      <div class="data-btns">
-        <button class="btn block" id="btnQuestoesTodas">▶ Responder todas as questões</button>
-      </div>
-    </div>
-    <div class="card" id="favoritosCard">
-      <h2>Favoritos <span id="tipFavoritos"></span></h2>
-      <div class="settings-sub" id="favoritosStatus">Toque na <svg class=ic-svg aria-hidden=true><use href=#ic-star></use></svg> durante uma questão pra favoritá-la e revisar depois, independente de ter acertado ou errado.</div>
-      <button class="btn ghost sm" id="btnRefazerFavoritas"><svg class=ic-svg aria-hidden=true><use href=#ic-star-fill></use></svg> Refazer favoritas</button>
-    </div>
-    <div class="card">
-      <div class="prv-filtros" id="questoesModoFiltro"></div>
-      <input class="search" type="search" id="questoesBusca" placeholder="Buscar matéria ou apostila...">
-      <div id="questoesLista"></div>
-    </div>
-  </section>
-
 
   <!-- REVISÃO -->
-  <section class="view" id="view-revisao">
-    <div id="revisaoResumo"></div>
-    <div class="card" id="revCalendarCard" style="margin-bottom:16px;">
-      <h2>Calendário de revisões <span id="tipCalendarioRevisao"></span></h2>
-      <div class="rev-cal-head">
-        <button class="rev-cal-nav" id="revCalPrev" title="Mês anterior" aria-label="Mês anterior">◀</button>
-        <div class="rev-cal-month" id="revCalMonth"></div>
-        <button class="rev-cal-nav" id="revCalNext" title="Próximo mês" aria-label="Próximo mês">▶</button>
-      </div>
-      <div class="rev-cal-grid" id="revCalGrid"></div>
-      <div class="rev-cal-legend">
-        <span><i class="dot late"></i>Atrasada</span>
-        <span><i class="dot today"></i>Hoje</span>
-        <span><i class="dot soon"></i>Agendada</span>
-        <span><i class="dot prev"></i>Prevista (etapas seguintes)</span>
-      </div>
-      <div class="rev-cal-dia" id="revCalDia"></div>
-    </div>
-    <div id="revisaoList"></div>
-    <div class="card" id="revRepoCard" style="margin-bottom:16px;">
-      <h2>Escolher o que revisar <span id="tipRepoRevisao"></span></h2>
-      <div class="settings-sub" style="margin-top:0;">Todas as aulas que você já concluiu, com a sua última avaliação. Filtre pelo que achou difícil e revise quando quiser, fora do cronograma.</div>
-      <div class="rev-repo-filtros" id="revRepoFiltros"></div>
-      <input class="search" type="search" id="revRepoBusca" placeholder="Buscar aula ou matéria...">
-      <div id="revRepoList"></div>
-    </div>
-    <div class="card" style="margin-bottom:16px;">
-      <h2>Intervalos por matéria <span id="tipIntervalosRevisao"></span></h2>
-      <div class="settings-sub" style="margin-top:0;">As 3 revisões espaçadas de cada matéria. Ao alterar, as revisões já agendadas dessa matéria são recalculadas na hora. A etapa de exercícios (48h após a teoria) tem prazo fixo e não entra aqui.</div>
-      <div id="stagesEditor"></div>
-    </div>
-    <div class="card">
-      <h2>Como funciona a revisão espaçada</h2>
-      <div style="font-size:.82rem; color:var(--text-mut); line-height:1.55;">
-        Ao concluir a leitura da teoria de uma apostila, o primeiro passo <b>não</b> é revisar: é <b>fazer os exercícios daquela apostila, em até 48 horas</b>. Essa etapa se fecha sozinha quando você responde todas as questões da aula — e só aí começa a contar a 1ª revisão.<br><br>
-        Depois vêm <b>3 revisões espaçadas</b>, de intervalo crescente (padrão <b>7</b> → <b>15</b> → <b>30 dias</b>), editáveis por matéria logo acima. Concluída a 3ª, a aula é considerada dominada e sai da fila. A avaliação <b>Difícil / Médio / Fácil</b> é apenas um registro do quanto você lembrou — ela <b>não altera</b> o intervalo nem a etapa. Serve para você reencontrar depois, em "Escolher o que revisar", tudo que achou difícil e reforçar manualmente quando quiser.
-      </div>
-    </div>
-  </section>
-
-  <!-- PROVAS ANTERIORES -->
-  <section class="view" id="view-provas">
-    <div id="provasResumo"></div>
-    <div class="card" id="provasListaCard" style="margin-bottom:16px;">
-      <h2>Provas anteriores</h2>
-      <div class="settings-sub" style="margin-top:0;">Cadernos oficiais da CESGRANRIO com o gabarito oficial de cada concurso. Faça a prova inteira como simulado, ou só as questões de uma matéria.</div>
-      <div class="prv-filtros" id="provasFiltros"></div>
-      <div id="provasLista"></div>
-    </div>
-    <div id="provaDetalhe" hidden>
-      <button class="btn ghost sm" id="prvVoltar" style="margin-bottom:12px;"><svg class=ic-svg aria-hidden=true><use href=#ic-back></use></svg> Todas as provas</button>
-      <div class="card" id="prvDetCard"></div>
-    </div>
-  </section>
-
-  <!-- METAS -->
-  <section class="view" id="view-metas">
+  <!-- PLANEJAMENTO (Ciclo + Metas + Revisão simplificada, fundidos em 26/08/2026) -->
+  <section class="view" id="view-planejamento">
     <div class="streak-box">
       <div class="flame"></div>
       <div>
@@ -2115,75 +2125,10 @@
         <div id="calAtividadeMeses"></div>
       </div>
     </div>
-  </section>
 
-  <!-- EDITAL -->
-  <section class="view" id="view-edital">
-    <div class="card" id="editalResumoCard">
-      <h2>Cobertura do edital</h2>
-      <div style="font-size:.85rem; color:var(--text-mut); margin-bottom:8px;" id="editalResumoTxt"></div>
-      <div class="bar"><i id="editalResumoBar" style="width:0%"></i></div>
-    </div>
-    <div id="editalList"></div>
-  </section>
+    <div id="revisaoResumo"></div>
+    <div id="revisaoList"></div>
 
-  <!-- TEMPO -->
-  <section class="view" id="view-tempo">
-    <div class="card" id="tempoActiveCard" style="display:none;">
-      <h2>Sessão em andamento</h2>
-      <div id="tempoActiveInfo"></div>
-    </div>
-
-    <div class="card">
-      <h2>Resumo geral</h2>
-      <div class="stat-row" id="tempoResumoRow"></div>
-    </div>
-
-    <div class="card">
-      <h2>Estimativas de tempo restante</h2>
-      <div class="stat-row" id="tempoEstimativasRow"></div>
-    </div>
-
-    <div class="card">
-      <h2>Distribuição do tempo por matéria</h2>
-      <div id="tempoDistribuicao"></div>
-      <div class="empty" style="padding:10px 0 0; text-align:left;">O peso de cada matéria (usado para montar o Ciclo de Estudos) agora é configurado na aba <b>Ciclo</b>, em "Replanejar".</div>
-    </div>
-
-    <div class="card">
-      <h2>Consistência <span id="tipConsistencia"></span></h2>
-      <div id="tempoConsistencia"></div>
-    </div>
-
-    <div class="card">
-      <h2>Tendência de ritmo <span id="tipTendencia"></span></h2>
-      <div id="tempoTendencia"></div>
-    </div>
-
-    <div class="card">
-      <h2>Análise de desempenho por matéria <span id="tipAnaliseDesempenho"></span></h2>
-      <div id="tempoDesvioChart"></div>
-      <div id="tempoAnaliseGeral"></div>
-    </div>
-
-    <details class="card recolhivel">
-      <summary><h2>Detalhe por matéria</h2><span class="marcador" aria-hidden="true"></span></summary>
-      <div id="tempoPorMateria"></div>
-    </details>
-
-    <div class="card">
-      <h2>Lançar sessão manualmente</h2>
-      <div id="tempoManualForm"></div>
-    </div>
-
-    <details class="card recolhivel">
-      <summary><h2>Histórico de sessões <span class="cnt" id="tempoHistCount"></span></h2><span class="marcador" aria-hidden="true"></span></summary>
-      <div id="tempoHistorico"></div>
-    </details>
-  </section>
-
-  <!-- PLANEJAMENTO (Ciclo de Estudos) -->
-  <section class="view" id="view-planejamento">
     <div id="cicloSetup" style="display:none;">
       <div class="card">
         <h2>Configurar Ciclo de Estudos</h2>
@@ -2264,10 +2209,75 @@
         <div id="cicloHistorico"></div>
       </div>
     </div>
+
+    <!-- 26/08/2026 (simplificação de IA): calendário mensal de revisões e "escolher o que
+         revisar" (repositório) viram "ver mais", junto da explicação de como funciona a
+         revisão espaçada - a lista de pendentes acima já cobre o uso do dia a dia. -->
+    <details class="card recolhivel">
+      <summary><h2>Ver mais de revisão</h2><span class="marcador" aria-hidden="true"></span></summary>
+      <div class="card" id="revCalendarCard" style="margin-bottom:16px;">
+        <h2>Calendário de revisões <span id="tipCalendarioRevisao"></span></h2>
+        <div class="rev-cal-head">
+          <button class="rev-cal-nav" id="revCalPrev" title="Mês anterior" aria-label="Mês anterior">◀</button>
+          <div class="rev-cal-month" id="revCalMonth"></div>
+          <button class="rev-cal-nav" id="revCalNext" title="Próximo mês" aria-label="Próximo mês">▶</button>
+        </div>
+        <div class="rev-cal-grid" id="revCalGrid"></div>
+        <div class="rev-cal-legend">
+          <span><i class="dot late"></i>Atrasada</span>
+          <span><i class="dot today"></i>Hoje</span>
+          <span><i class="dot soon"></i>Agendada</span>
+          <span><i class="dot prev"></i>Prevista (etapas seguintes)</span>
+        </div>
+        <div class="rev-cal-dia" id="revCalDia"></div>
+      </div>
+      <div class="card" id="revRepoCard" style="margin-bottom:16px;">
+        <h2>Escolher o que revisar <span id="tipRepoRevisao"></span></h2>
+        <div class="settings-sub" style="margin-top:0;">Todas as aulas que você já concluiu, com a sua última avaliação. Filtre pelo que achou difícil e revise quando quiser, fora do cronograma.</div>
+        <div class="rev-repo-filtros" id="revRepoFiltros"></div>
+        <input class="search" type="search" id="revRepoBusca" placeholder="Buscar aula ou matéria...">
+        <div id="revRepoList"></div>
+      </div>
+      <div class="card" id="questoesErradasCard" style="margin-bottom:16px;">
+        <h2>Questões erradas por matéria</h2>
+        <div class="settings-sub" style="margin-top:0;">Os números que você marcou como errados ao registrar quantas questões fez/acertou de cada apostila (etapa de Exercícios, acima).</div>
+        <div id="questoesErradasList"></div>
+      </div>
+      <div class="card">
+        <h2>Como funciona a revisão espaçada</h2>
+        <div style="font-size:.82rem; color:var(--text-mut); line-height:1.55;">
+          Ao concluir a leitura da teoria de uma apostila, o primeiro passo <b>não</b> é revisar: é <b>fazer os exercícios daquela apostila, em até 48 horas</b>. Essa etapa se fecha sozinha quando você responde todas as questões da aula — e só aí começa a contar a 1ª revisão.<br><br>
+          Depois vêm <b>3 revisões espaçadas</b>, de intervalo crescente (padrão <b>7</b> → <b>15</b> → <b>30 dias</b>), editáveis por matéria em Ajustes. Concluída a 3ª, a aula é considerada dominada e sai da fila. A avaliação <b>Difícil / Médio / Fácil</b> é apenas um registro do quanto você lembrou — ela <b>não altera</b> o intervalo nem a etapa. Serve para você reencontrar depois, em "Escolher o que revisar", tudo que achou difícil e reforçar manualmente quando quiser.
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- PROVAS ANTERIORES -->
+  <section class="view" id="view-provas">
+    <div id="provasResumo"></div>
+    <div class="card" id="provasListaCard" style="margin-bottom:16px;">
+      <h2>Provas anteriores</h2>
+      <div class="settings-sub" style="margin-top:0;">Cadernos oficiais da CESGRANRIO com o gabarito oficial de cada concurso. Faça a prova inteira como simulado, ou só as questões de uma matéria.</div>
+      <div class="prv-filtros" id="provasFiltros"></div>
+      <div id="provasLista"></div>
+    </div>
+    <div id="provaDetalhe" hidden>
+      <button class="btn ghost sm" id="prvVoltar" style="margin-bottom:12px;"><svg class=ic-svg aria-hidden=true><use href=#ic-back></use></svg> Todas as provas</button>
+      <div class="card" id="prvDetCard"></div>
+    </div>
   </section>
 
   <!-- AJUSTES: pagina normal como as outras, nao mais um overlay -->
   <section class="view" id="view-ajustes">
+    <div class="card">
+      <h2>Modo do app</h2>
+      <div class="settings-sub" style="margin-top:0;">No modo simples, os widgets mais analíticos (tendência de ritmo, análise de desempenho/desvio por matéria) ficam escondidos por padrão — o resto do app é igual nos dois modos.</div>
+      <div class="theme-toggle">
+        <div class="theme-opt" id="modoOptSimples" data-modo-val="simples"><span class="ic"><svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg></span>Simples</div>
+        <div class="theme-opt" id="modoOptCompleto" data-modo-val="completo"><span class="ic"><svg class=ic-svg aria-hidden=true><use href=#ic-book-open></use></svg></span>Completo</div>
+      </div>
+    </div>
     <div class="card">
       <h2>Aparência</h2>
       <div class="theme-toggle">
@@ -2285,6 +2295,11 @@
         <div class="form-row"><label>Minutos de foco</label><input type="number" id="cfgPomodoroFocus" min="5" max="180" step="5"></div>
         <div class="form-row"><label>Minutos de intervalo</label><input type="number" id="cfgPomodoroBreak" min="5" max="60" step="5"></div>
       </div>
+    </div>
+    <div class="card">
+      <h2>Intervalos de revisão por matéria <span id="tipIntervalosRevisao"></span></h2>
+      <div class="settings-sub" style="margin-top:0;">As 3 revisões espaçadas de cada matéria. Ao alterar, as revisões já agendadas dessa matéria são recalculadas na hora. A etapa de exercícios (48h após a teoria) tem prazo fixo e não entra aqui.</div>
+      <div id="stagesEditor"></div>
     </div>
     <div class="card" style="display:none;" id="installCard">
       <h2>Instalar app</h2>
@@ -2411,13 +2426,8 @@
   <div class="drawer-items">
   <button data-view="painel" class="active"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.2 12 4l8.5 7.2"/><path d="M5.5 9.8V19a1 1 0 0 0 1 1H9.5v-5.5h5V20h3a1 1 0 0 0 1-1V9.8"/></svg></span>Painel</button>
   <button data-view="materias"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.2c2.4-.9 5-.9 7.5.3v13c-2.5-1.2-5.1-1.2-7.5-.3z"/><path d="M20 5.2c-2.4-.9-5-.9-7.5.3v13c2.5-1.2 5.1-1.2 7.5-.3z"/></svg></span>Matérias</button>
-  <button data-view="questoes"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3.5" width="15" height="17" rx="1.6"/><path d="M8 8.5h8M8 12h8M8 15.5h5.5"/></svg></span>Questões</button>
-  <button data-view="tempo"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.3"/><path d="M12 7.5V12l3.2 2"/></svg></span>Tempo</button>
-  <button data-view="planejamento"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.7" y="5" width="16.6" height="15" rx="2.2"/><path d="M3.7 9.7h16.6"/><path d="M8 3.3v3.6M16 3.3v3.6"/></svg></span>Ciclo</button>
-  <button data-view="revisao"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.5 20.5 6 17 9.5"/><path d="M3.5 11V9a3.5 3.5 0 0 1 3.5-3.5h13.5"/><path d="M7 21.5 3.5 18 7 14.5"/><path d="M20.5 13v2a3.5 3.5 0 0 1-3.5 3.5H3.5"/></svg><i class="tab-badge" id="revisaoBadge" hidden></i></span>Revisão</button>
+  <button data-view="planejamento"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.7" y="5" width="16.6" height="15" rx="2.2"/><path d="M3.7 9.7h16.6"/><path d="M8 3.3v3.6M16 3.3v3.6"/></svg><i class="tab-badge" id="revisaoBadge" hidden></i></span>Planejamento</button>
   <button data-view="provas"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.2h8.2l4.3 4.3v13.3H6.5z"/><path d="M14.4 3.4v4.3h4.3"/><path d="M9.4 12.4h6.2M9.4 15.7h6.2"/></svg></span>Provas</button>
-  <button data-view="metas"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg></span>Metas</button>
-  <button data-view="edital"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.2h11a1 1 0 0 1 1 1v16.4l-6.5-3.2-6.5 3.2V4.2a1 1 0 0 1 1-1z"/><path d="M9 8.2h6M9 11.6h6"/></svg></span>Edital</button>
   <button type="button" data-view="ajustes" id="btnSettingsTab"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.2M12 18.3v2.2M20.5 12h-2.2M5.7 12H3.5M17.7 6.3l-1.6 1.6M7.9 16.1l-1.6 1.6M17.7 17.7l-1.6-1.6M7.9 7.9 6.3 6.3"/></svg></span>Ajustes</button>
   </div>
 </nav>
@@ -2909,7 +2919,7 @@ function questoesAcertosManual(si, ai){
 function buildFlagsGridHtml(si, ai){
   const total = getAula(si,ai).questoesTotalManual||0;
   if(total<=0){
-    return '<div class="form-row"><small style="color:var(--text-mut);">Declare o total de questões dessa apostila (aba Revisão, etapa de Exercícios) pra poder marcar quais errou.</small></div>';
+    return '<div class="form-row"><small style="color:var(--text-mut);">Declare o total de questões dessa apostila (aba Planejamento, etapa de Exercícios) pra poder marcar quais errou.</small></div>';
   }
   const erradas = new Set(getAula(si,ai).questoesErradas||[]);
   let btns = '';
@@ -2931,6 +2941,48 @@ function saveFlaggedErradas(si, ai, container){
   if(container.querySelectorAll('.flag-num-btn').length===0) return; // total nao declarado, nada pra salvar
   const rec = getAula(si,ai);
   rec.questoesErradas = Array.from(grid).map(b=> parseInt(b.dataset.num,10));
+}
+// 26/08/2026: local pra REVER (não só marcar) as questões erradas flagadas, por matéria -
+// antes elas só apareciam no momento de marcar, sem lugar pra consultar depois (pedido do
+// Bruno). Só leitura; pra editar, é no mesmo grid de sempre (registro de questões).
+function aulasComQuestoesErradas(){
+  const out = [];
+  SUBJECTS.forEach((s,si)=>{
+    s.aulas.forEach((a,ai)=>{
+      const rec = state.aulas[key(si,ai)];
+      if(rec && rec.questoesErradas && rec.questoesErradas.length>0){
+        out.push({ si, ai, subject:s.name, aula:a, rec });
+      }
+    });
+  });
+  return out;
+}
+function renderQuestoesErradas(){
+  const wrap = document.getElementById('questoesErradasList');
+  if(!wrap) return;
+  const itens = aulasComQuestoesErradas();
+  if(itens.length===0){
+    wrap.innerHTML = '<div class="empty">Nenhuma questão marcada como errada ainda. Ao registrar quantas você fez/acertou numa apostila (etapa de Exercícios), marque os números que errou.</div>';
+    return;
+  }
+  const porMateria = {};
+  itens.forEach(x=>{ (porMateria[x.si] = porMateria[x.si]||[]).push(x); });
+  wrap.innerHTML = Object.keys(porMateria).map(siStr=>{
+    const si = Number(siStr);
+    const lista = porMateria[si];
+    const totalErros = lista.reduce((n,x)=> n + x.rec.questoesErradas.length, 0);
+    return `<div class="rev-grp-title">${escapeHtml(SUBJECTS[si].name)} (${totalErros})</div>` + lista.map(x=>{
+      const nums = x.rec.questoesErradas.slice().sort((a,b)=>a-b);
+      const total = x.rec.questoesTotalManual||0;
+      return `<div class="rev-repo-item">
+        <div class="info">
+          <b>${escapeHtml(x.aula)}</b>
+          <small>${nums.length} de ${total||'?'} questões marcadas</small>
+          <div class="flags-grid" style="margin-top:6px;">${nums.map(n=>`<span class="flag-num-btn flagged" style="cursor:default;">${n}</span>`).join('')}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }).join('');
 }
 function exerciciosDaAulaConcluidos(si, ai){
   const banco = bankFor(si, ai);
@@ -3207,6 +3259,10 @@ function migrateState(s){
   if(!s.settings) s.settings = { theme:'dark', accent:'apostila' };
   if(!s.settings.theme) s.settings.theme = 'dark';
   if(!s.settings.accent) s.settings.accent = 'apostila';
+  // 26/08/2026 (simplificação de IA): modo simples esconde por padrão os widgets mais
+  // analíticos (tendência de ritmo, análise de desempenho/desvio por matéria) - ver
+  // applyModoSimples/renderPainel. Começa em modo simples pra quem nunca mexeu nisso.
+  if(s.settings.modoSimples===undefined) s.settings.modoSimples = true;
   // Sessão padrão estilo Pomodoro (30min foco + 10min intervalo), configurável em
   // Ajustes (ver renderConfigPomodoro). Backups antigos não tinham isso.
   if(!s.settings.pomodoro) s.settings.pomodoro = { focusMin:30, breakMin:10 };
@@ -3524,7 +3580,7 @@ function setPagesRead(si, ai, newVal, opts){
 function avisoTeoriaConcluida(si, ai, rec){
   const banco = bankFor(si, ai);
   if(banco.length === 0){
-    toast("Teoria concluída — na aba Revisão, diga quantas questões essa apostila tem, pra registrar seu progresso nos Exercícios (prazo 48h)");
+    toast("Teoria concluída — na aba Planejamento, diga quantas questões essa apostila tem, pra registrar seu progresso nos Exercícios (prazo 48h)");
     return;
   }
   toast("Teoria concluída Próximo passo: fazer as "+banco.length+" questões desta apostila até "+fmtDate(rec.nextReview)+" (48h)");
@@ -5129,7 +5185,7 @@ const METRICS_CATALOG = [
   { id:'questoes_pendentes', categoria:'Questões', titulo:'Questões pendentes', niveis:['global','materia'], tamanho:'pequeno',
     tooltip:'Quantidade de questões que você já tentou pelo menos uma vez, mas ainda não acertou. É o seu "backlog" de revisão — o objetivo é fazer esse número diminuir até chegar perto de zero. Use o seletor "Geral / Por matéria" no próprio widget para alternar a visão.' },
   { id:'revisoes_pendentes', categoria:'Questões', titulo:'Revisões pendentes', niveis:['global','materia'], tamanho:'pequeno',
-    tooltip:'Quantas aulas estão com revisão espaçada vencida — ou seja, atrasadas ou marcadas para hoje. Quando está zerado, o widget mostra a data da próxima revisão agendada. A fila completa, com calendário e agenda, fica na aba Revisão.' },
+    tooltip:'Quantas aulas estão com revisão espaçada vencida — ou seja, atrasadas ou marcadas para hoje. Quando está zerado, o widget mostra a data da próxima revisão agendada. A fila completa, com calendário e agenda, fica na aba Planejamento.' },
 
   { id:'tempo_total', categoria:'Tempo', titulo:'Tempo total estudado',
     modos:[{id:'teoria',label:'Teoria'},{id:'questoes',label:'Questões'},{id:'consolidado',label:'Consolidado'},{id:'simulados',label:'Simulados'}],
@@ -5307,12 +5363,28 @@ function setAccent(accentId){
   applyTheme();
   renderSettingsControls();
 }
+// 26/08/2026 (simplificação de IA): modo simples/completo - esconde por padrão os widgets
+// mais analíticos do Painel (ver painelAvancado no HTML e renderPainel()).
+function setModoSimples(simples){
+  state.settings.modoSimples = !!simples;
+  save();
+  applyModoSimples();
+  renderSettingsControls();
+}
+function applyModoSimples(){
+  const wrap = document.getElementById('painelAvancado');
+  if(wrap) wrap.style.display = state.settings.modoSimples ? 'none' : '';
+}
 function renderSettingsControls(){
   const s = state.settings;
   const lightOpt = document.getElementById('themeOptLight');
   const darkOpt = document.getElementById('themeOptDark');
   if(lightOpt) lightOpt.classList[s.theme!=='dark' ? 'add' : 'remove']('active');
   if(darkOpt) darkOpt.classList[s.theme==='dark' ? 'add' : 'remove']('active');
+  const modoSimplesOpt = document.getElementById('modoOptSimples');
+  const modoCompletoOpt = document.getElementById('modoOptCompleto');
+  if(modoSimplesOpt) modoSimplesOpt.classList[s.modoSimples ? 'add' : 'remove']('active');
+  if(modoCompletoOpt) modoCompletoOpt.classList[!s.modoSimples ? 'add' : 'remove']('active');
   const row = document.getElementById('accentRow');
   if(row){
     row.innerHTML = ACCENTS.map(a=>`<div class="accent-swatch${s.accent===a.id?' active':''}" data-accent-val="${a.id}" style="background:${a.cor};" title="${a.label}">${s.accent===a.id?'<svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg>':''}</div>`).join('');
@@ -5331,19 +5403,6 @@ function renderSettingsControls(){
 }
 // Card "Favoritos" mora na aba Questões (não mais em Ajustes) - função própria porque
 // precisa ser chamada sempre que a aba Questões renderiza, não só quando Ajustes abre.
-function renderFavoritosCard(){
-  const tipFav = document.getElementById('tipFavoritos');
-  if(tipFav) tipFav.innerHTML = tipIcon('favoritos');
-  const favStatus = document.getElementById('favoritosStatus');
-  if(favStatus){
-    const n = favoriteCount();
-    favStatus.innerHTML = n>0
-      ? `${n} quest${n===1?'ão':'ões'} favoritada${n===1?'':'s'}.`
-      : 'Toque na <svg class=ic-svg aria-hidden=true><use href=#ic-star></use></svg> durante uma questão pra favoritá-la e revisar depois, independente de ter acertado ou errado.';
-  }
-  const btnRefazerFav = document.getElementById('btnRefazerFavoritas');
-  if(btnRefazerFav) btnRefazerFav.disabled = favoriteCount()===0;
-}
 // Conteúdo de Ajuda (tutoriais + manual) só é montado quando o usuário abre a
 // janela de Ajuda (botão "Ajuda" em Ajustes) - fica numa janela própria, separada
 // de Ajustes, em vez de uma lista comprida já expandida dentro das configurações.
@@ -5363,8 +5422,11 @@ function renderHelpControls(){
   wireTooltips(document.getElementById('helpOverlay'));
 }
 applyTheme();
+applyModoSimples();
 document.getElementById('themeOptLight').addEventListener('click', ()=> setTheme('light'));
 document.getElementById('themeOptDark').addEventListener('click', ()=> setTheme('dark'));
+document.getElementById('modoOptSimples').addEventListener('click', ()=> setModoSimples(true));
+document.getElementById('modoOptCompleto').addEventListener('click', ()=> setModoSimples(false));
 
 // Sessão padrão Pomodoro (foco/intervalo), persistida em state.settings.pomodoro —
 // mesma storeKey do currículo, não uma chave solta nova.
@@ -5388,11 +5450,6 @@ document.getElementById('btnOpenHelp').addEventListener('click', ()=>{
   document.getElementById('helpOverlay').classList.add('show');
 });
 document.getElementById('helpClose').addEventListener('click', ()=> document.getElementById('helpOverlay').classList.remove('show'));
-document.getElementById('btnRefazerFavoritas').addEventListener('click', ()=>{
-  const favs = allFavoriteQuestions();
-  if(favs.length===0){ toast('Nenhuma questão favoritada ainda '); return; }
-  startQuiz(favs, 'Favoritos');
-});
 
 /* ===================== ASSISTENTE DE CONFIGURAÇÃO INICIAL =====================
    Wizard de 4 etapas mostrado no primeiro acesso (e reaberto a qualquer momento em
@@ -5498,7 +5555,7 @@ function onbBodyTrajetoria(){
     </div>`;
   }
   return `<h2 style="margin:0 0 4px;">Tem uma data de prova em mente?</h2>
-  <div class="settings-sub" style="margin-top:0;">Opcional. Com base no que falta ler e no seu ritmo, o app calcula quantas páginas e questões por dia você precisa manter pra chegar lá no prazo. Dá pra mudar isso depois, na aba Metas.</div>
+  <div class="settings-sub" style="margin-top:0;">Opcional. Com base no que falta ler e no seu ritmo, o app calcula quantas páginas e questões por dia você precisa manter pra chegar lá no prazo. Dá pra mudar isso depois, na aba Planejamento.</div>
   <div class="form-row" style="margin-top:16px;">
     <label>Data da prova (ou data alvo)</label>
     <input type="date" id="onbDataAlvo" value="${onbAnswers.dataAlvo||''}">
@@ -5685,12 +5742,8 @@ const VIEW_TITLES = {
   painel:       { label:'Painel', desc:'Acompanhamento de apostilas e questões.' },
   materias:     { label:'Matérias', desc:'Suas apostilas, aula por aula, com o progresso de leitura de cada uma.' },
   questoes:     { label:'Questões', desc:'Pratique por matéria, por apostila ou todas as questões juntas.' },
-  tempo:        { label:'Tempo de estudo', desc:'Quanto tempo você já dedicou a teoria e questões, por matéria e no total.' },
-  planejamento: { label:'Ciclo de estudos', desc:'A ordem das matérias no seu ciclo e o quanto já avançou nele.' },
-  refazer:      { label:'Questões para refazer', desc:'Questões que você errou e ainda não dominou - vale a pena revisar.' },
-  revisao:      { label:'Revisão espaçada', desc:'Aulas com revisão programada pra hoje, no intervalo certo pra fixar.' },
-  metas:        { label:'Metas', desc:'Sua sequência de dias estudados e a meta diária de páginas.' },
-  edital:       { label:'Edital', desc:'Cada item do conteúdo programático e se já está coberto pelas aulas estudadas.' },
+  planejamento: { label:'Planejamento', desc:'Metas, ciclo de estudos e revisão espaçada, tudo num só lugar.' },
+  provas:       { label:'Provas anteriores', desc:'Cadernos oficiais da CESGRANRIO, prova inteira ou por matéria.' },
   ajustes:      { label:'Ajustes', desc:'Aparência, sessão de estudo, dados, sincronização e ajuda.' },
 };
 function updateHeaderForView(viewName){
@@ -5711,6 +5764,21 @@ document.querySelectorAll('.drawer-items button[data-view]').forEach(btn=>{
     updateHeaderForView(btn.dataset.view);
     renderAll();
     closeDrawer();
+    window.scrollTo(0,0);
+  });
+});
+
+// 26/08/2026: sub-navegação "Por matéria / Edital" dentro da aba Matérias (ver comentário no
+// HTML). Só alterna visibilidade de dois blocos já renderizados por renderAll() - não troca
+// de view nem precisa re-renderizar nada, os dois lados já estão sempre atualizados.
+document.querySelectorAll('#materiasSubNav .mat-subnav-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#materiasSubNav .mat-subnav-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const porMateria = document.getElementById('materiasSubPorMateria');
+    const edital = document.getElementById('materiasSubEdital');
+    if(btn.dataset.sub==='edital'){ porMateria.hidden = true; edital.hidden = false; }
+    else { porMateria.hidden = false; edital.hidden = true; }
     window.scrollTo(0,0);
   });
 });
@@ -6840,148 +6908,6 @@ function resumoMateria(si){
   };
 }
 
-/* ===================== ABA QUESTÕES =====================
-   Tela dedicada a praticar questões, independente de Matérias (que é sobre teoria/leitura).
-   Três formas de responder: todas as matérias ativas juntas, uma matéria inteira, ou uma
-   apostila (aula) específica. Só olha matérias ativas (isSubjectActive), igual ao resto do
-   app. */
-let questoesModo = 'materia'; // 'materia' | 'apostila'
-function statsForQuestions(qs){
-  let respondidas=0, dominadas=0;
-  qs.forEach(q=>{
-    const r = state.questions[q.id];
-    if(r && r.attempts){ respondidas++; if(r.dominated) dominadas++; }
-  });
-  return { total: qs.length, respondidas, dominadas, pct: qs.length? Math.round(respondidas/qs.length*100):0 };
-}
-function allActiveQuestions(){
-  const out = [];
-  Metricas.materiasAtivas().forEach(({s,si})=>{
-    s.aulas.forEach((a,ai)=> out.push(...bankFor(si,ai)));
-  });
-  return out;
-}
-function questoesForSubject(si){
-  const s = SUBJECTS[si];
-  const out = [];
-  s.aulas.forEach((a,ai)=> out.push(...bankFor(si,ai)));
-  return out;
-}
-function renderQuestoes(filterArg){
-  const buscaEl = document.getElementById('questoesBusca');
-  const filter = (filterArg!=null ? filterArg : (buscaEl? buscaEl.value : '')).toLowerCase().trim();
-  const resumo = document.getElementById('questoesResumo');
-  const listaEl = document.getElementById('questoesLista');
-  const filtrosEl = document.getElementById('questoesModoFiltro');
-  if(!resumo || !listaEl || !filtrosEl) return;
-
-  renderFavoritosCard();
-  wireTooltips(document.getElementById('view-questoes'));
-
-  const todas = allActiveQuestions();
-  const st = statsForQuestions(todas);
-  resumo.innerHTML = `<div class="rev-kpis">
-      <div class="rev-kpi"><b>${st.total}</b><small>questões disponíveis</small></div>
-      <div class="rev-kpi${st.respondidas?' ok':''}"><b>${st.respondidas}</b><small>já respondidas</small></div>
-      <div class="rev-kpi"><b>${st.dominadas}</b><small>dominadas</small></div>
-      <div class="rev-kpi"><b>${st.pct}%</b><small>do banco já feito</small></div>
-    </div>`;
-
-  filtrosEl.innerHTML = '';
-  [['materia','Por matéria'],['apostila','Por apostila']].forEach(([k,label])=>{
-    const b = document.createElement('button');
-    b.className = 'rev-repo-filtro'+(questoesModo===k?' on':'');
-    setRotulo(b, label);
-    b.addEventListener('click', ()=>{ questoesModo=k; renderQuestoes(); });
-    filtrosEl.appendChild(b);
-  });
-
-  listaEl.innerHTML = '';
-  const ativos = Metricas.materiasAtivasOrdenadas();
-
-  if(questoesModo==='materia'){
-    const grid = document.createElement('div');
-    grid.className = 'mat-grid';
-    let n=0;
-    ativos.forEach(({s,si})=>{
-      const qs = questoesForSubject(si);
-      if(!qs.length) return;
-      if(filter && !s.name.toLowerCase().includes(filter)) return;
-      n++;
-      const qst = statsForQuestions(qs);
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'mat-card';
-      card.style.setProperty('--mat-cor', subjectColor(si));
-      card.innerHTML = `
-        <div class="mat-card-nm">${escapeHtml(s.name)}</div>
-        <div class="mat-card-kpis">
-          <div><b>${qst.total}</b><span>Questões</span></div>
-          <div><b>${qst.respondidas}</b><span>Respondidas</span></div>
-          <div><b>${qst.pct}%</b><span>Feito</span></div>
-        </div>`;
-      card.addEventListener('click', ()=> startQuiz(qs, s.name));
-      grid.appendChild(card);
-    });
-    if(n===0){ listaEl.innerHTML = '<div class="empty">Nenhuma matéria com questões encontrada.</div>'; return; }
-    listaEl.appendChild(grid);
-  } else {
-    let n=0;
-    ativos.forEach(({s,si})=>{
-      const aulasComQ = s.aulas.map((a,ai)=>({a,ai,qs:bankFor(si,ai)})).filter(x=>x.qs.length);
-      if(!aulasComQ.length) return;
-      const matchSubj = s.name.toLowerCase().includes(filter);
-      const filteredAulas = aulasComQ.filter(x=> matchSubj || x.a.toLowerCase().includes(filter));
-      if(filter && filteredAulas.length===0) return;
-      n++;
-
-      const block = document.createElement('div');
-      block.className = 'subj-block';
-      block.style.setProperty('--mat-cor', subjectColor(si));
-      if(filter || questoesAbertas.has(si)) block.classList.add('open');
-      const totalQs = aulasComQ.reduce((s2,x)=>s2+x.qs.length,0);
-      const head = document.createElement('div');
-      head.className = 'subj-head';
-      head.innerHTML = `<div class="ttl"><b>${escapeHtml(s.name)}</b><small>${totalQs} questões em ${aulasComQ.length} apostilas</small></div><div class="chev">▶</div>`;
-      head.addEventListener('click', ()=>{
-        block.classList.toggle('open');
-        if(block.classList.contains('open')) questoesAbertas.add(si); else questoesAbertas.delete(si);
-      });
-      block.appendChild(head);
-
-      const body = document.createElement('div');
-      body.className = 'subj-body';
-      (filter? filteredAulas : aulasComQ).forEach(({a,ai,qs})=>{
-        const qst = statsForQuestions(qs);
-        const row = document.createElement('div');
-        row.className = 'aula-row';
-        row.innerHTML = `
-          <div class="aula-top">
-            <div class="aula-txt">
-              <div class="nm">Aula ${escapeHtml(a)}</div>
-              <div class="dt">${qst.respondidas}/${qst.total} respondidas · ${qst.dominadas} dominadas</div>
-            </div>
-          </div>
-          <div class="quiz-row">
-            <button class="btn sm block quiz-btn"><svg class=ic-svg aria-hidden=true><use href=#ic-quiz></use></svg> Responder questões (${qst.total})</button>
-          </div>`;
-        row.querySelector('.quiz-btn').addEventListener('click', ()=> startQuiz(qs, s.name+' · Aula '+a));
-        body.appendChild(row);
-      });
-      block.appendChild(body);
-      listaEl.appendChild(block);
-    });
-    if(n===0){ listaEl.innerHTML = '<div class="empty">Nenhuma apostila com questões encontrada.</div>'; }
-  }
-}
-let questoesAbertas = new Set();
-document.getElementById('btnQuestoesTodas').addEventListener('click', ()=>{
-  const qs = allActiveQuestions();
-  if(!qs.length){ toast('Nenhuma questão disponível.'); return; }
-  startQuiz(qs, 'Todas as questões');
-});
-document.getElementById('questoesBusca').addEventListener('input', e=> renderQuestoes(e.target.value));
-
 function renderMaterias(filter){
   // ago/2026: roda o auto-fechamento da etapa de exercicios a cada vez que a aba Materias
   // renderiza (nao so no boot do app ou logo apos responder uma questao) - assim, se o
@@ -7170,10 +7096,7 @@ function renderMateriaDetalhe(si, filter){
     ()=> startQuiz(corretas, s.name+' · Corretas', 'review'));
   addAcao(`<svg class=ic-svg aria-hidden=true><use href=#ic-star-fill></use></svg> Favoritas (${favs.length})`, favs.length===0,
     ()=> startQuiz(favs, s.name+' · Favoritos'));
-  addAcao(`<svg class=ic-svg aria-hidden=true><use href=#ic-refazer></use></svg> Ver revisões (${revs.length})`, false, ()=>{
-    document.querySelector('.drawer-items button[data-view="revisao"]').click();
-  });
-  addAcao('<svg class=ic-svg aria-hidden=true><use href=#ic-calendar></use></svg> Ver no ciclo', false, ()=>{
+  addAcao(`<svg class=ic-svg aria-hidden=true><use href=#ic-refazer></use></svg> Ver revisões/ciclo (${revs.length})`, false, ()=>{
     document.querySelector('.drawer-items button[data-view="planejamento"]').click();
   });
 
@@ -7254,7 +7177,7 @@ function renderAulasDaMateria(siAlvo, filter){
         // 26/08/2026: banco de questões extraído foi arquivado (qualidade ruim vs. apostila
         // real, a pedido do Bruno) - agora questões são sempre registradas manualmente, na
         // etapa de Exercícios (aba Revisão) ou numa sessão de questões avulsa.
-        quizHtml = `<div class="quiz-empty-note">Questões registradas manualmente — veja a etapa de Exercícios na aba Revisão, ou inicie uma sessão de questões acima.</div>`;
+        quizHtml = `<div class="quiz-empty-note">Questões registradas manualmente — veja a etapa de Exercícios na aba Planejamento, ou inicie uma sessão de questões acima.</div>`;
       }
       const apostilaUrl = apostilaHref(si,ai);
       const apostilaRel = apostilaRelPath(si,ai);
@@ -7458,6 +7381,7 @@ function renderRevisao(){
   renderRevisaoResumo();
   renderRevisaoCalendario();
   renderRevisaoRepo();
+  renderQuestoesErradas();
   renderRevisaoStagesEditor();
   updateRevisaoBadge(); // qualquer caminho que redesenhe a aba tambem acerta a bolinha
   const wrap = document.getElementById('revisaoList');
@@ -7608,7 +7532,7 @@ function renderRevisaoResumo(){
          <div class="rev-callout-ic">${atrasadas>0?'<svg class=ic-svg aria-hidden=true><use href=#ic-clock></use></svg>':'<svg class=ic-svg aria-hidden=true><use href=#ic-pin></use></svg>'}</div>
          <div>
            <b>${aFazer} ${aFazer===1?'revisão te esperando':'revisões te esperando'}</b>
-           <small>${atrasadas} atrasada${atrasadas===1?'':'s'} + ${hoje} para hoje — é esse número que aparece na aba Revisão</small>
+           <small>${atrasadas} atrasada${atrasadas===1?'':'s'} + ${hoje} para hoje</small>
          </div>
        </div>`
     : `<div class="rev-callout ok">
@@ -8142,7 +8066,7 @@ function renderMetas(){
 
   renderMetaDataAlvo();
   renderCalendarioAtividade();
-  wireTooltips(document.getElementById('view-metas'));
+  wireTooltips(document.getElementById('view-planejamento'));
 }
 const MESES_LABEL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 // Um mes inteiro do calendario de atividade (reaproveita as classes .heat/.d ja usadas no
@@ -8250,6 +8174,17 @@ function irParaAula(si, ai){
   if(viewMaterias) viewMaterias.classList.add('active');
   updateHeaderForView('materias');
   closeDrawer();
+  // 26/08/2026: Edital agora é uma sub-seção dentro de Matérias - ao pular pra uma aula
+  // (ex.: clicando num item do Edital), volta a sub-navegação pra "Por matéria", senão a
+  // aula fica escondida atrás da seção Edital ainda visível.
+  const subNavBtns = document.querySelectorAll('#materiasSubNav .mat-subnav-btn');
+  if(subNavBtns.length){
+    subNavBtns.forEach(b=> b.classList.toggle('active', b.dataset.sub==='porMateria'));
+    const porMateria = document.getElementById('materiasSubPorMateria');
+    const edital = document.getElementById('materiasSubEdital');
+    if(porMateria) porMateria.hidden = false;
+    if(edital) edital.hidden = true;
+  }
   abrirMateria(si);
   renderAll();
   setTimeout(()=>{
@@ -10241,6 +10176,7 @@ function renderTempoManualForm(){
 }
 function renderTempo(){
   renderTimerBar();
+  applyModoSimples();
   const activeCard = document.getElementById('tempoActiveCard');
   if(state.activeSession){
     activeCard.style.display = '';
@@ -10349,7 +10285,7 @@ function renderTempo(){
     }).join('');
   }
 
-  wireTooltips(document.getElementById('view-tempo'));
+  wireTooltips(document.getElementById('painelTempoDetalhe'));
 }
 
 /* ===================== RENDER: PLANEJAMENTO (Ciclo de Estudos) ===================== */
@@ -10481,7 +10417,7 @@ function renderCicloRitmoAlvo(){
     else if(folgaSemanas>0) comparacaoHtml = `<span class="meta-alvo-folga folga">+${folgaSemanas} semana${folgaSemanas===1?'':'s'} de folga até a data alvo (${dataAlvoLbl})</span>`;
     else comparacaoHtml = `<span class="meta-alvo-folga atraso">${Math.abs(folgaSemanas)} semana${Math.abs(folgaSemanas)===1?'':'s'} além da data alvo (${dataAlvoLbl})</span>`;
   } else {
-    comparacaoHtml = `<span class="meta-alvo-folga neutro">defina uma data alvo na aba Metas pra comparar</span>`;
+    comparacaoHtml = `<span class="meta-alvo-folga neutro">defina uma data alvo na aba Planejamento pra comparar</span>`;
   }
   wrap.innerHTML = `<div class="meta-alvo-block">
     <div class="lbl">Ritmo até a data alvo</div>
@@ -10917,7 +10853,6 @@ function renderAll(skipMaterias){
   renderHeaderStats();
   renderPainel();
   if(!skipMaterias) renderMaterias(document.getElementById('searchBox').value);
-  renderQuestoes();
   renderRevisao();
   renderMetas();
   renderEdital();
