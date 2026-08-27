@@ -3734,7 +3734,16 @@ const Metricas = {
   sessoesNoDia(iso){ return state.sessions.filter(s=> dataLocalDe(s.timestampFim)===iso); },
   tempoNoDia(iso){ return sumTempo(this.sessoesNoDia(iso)); },
   // ---- QUESTOES ----
-  questoesNoDia(iso){ return (state.answerLog||[]).filter(a=> a.d===iso).length; },
+  // 26/08/2026: sem banco de questões, `state.answerLog` (só alimentado pelo quiz automático)
+  // parou de crescer - questoesNoDia passa a somar as sessões manuais (tipo 'questoes',
+  // questoesManual.count) daquele dia, igual o resto das métricas de questões já foi migrado
+  // (ver dominioQuestoes/questoesManualNaJanela). Sem filtro de matéria ativa, pelo mesmo
+  // motivo de paginasNoDia: é um registro de atividade do dia, não um recorte do plano atual.
+  questoesNoDia(iso){
+    return state.sessions
+      .filter(s=> s.tipo==='questoes' && dataLocalDe(s.timestampFim)===iso)
+      .reduce((sum,s)=> sum + questoesRespondidasNaSessao(s), 0);
+  },
   // ---- ATIVIDADE / STREAK ----
   diaTemAtividade(iso){ return _diasComAtividadeSet().has(iso); },
   streakAtual(){
@@ -3744,9 +3753,9 @@ const Metricas = {
     return n;
   },
   // ---- ESTATISTICAS AGREGADAS DE UM DIA (tooltip do calendario mensal) ----
-  // 19/08/2026: "questoes" aqui reusa this.questoesNoDia(iso) (fonte via answerLog) - antes
-  // recalculava via questoesIds.length das sessoes do dia, o que podia divergir do numero
-  // "oficial" de questoesNoDia pro MESMO dia (inconsistencia dentro do proprio objeto Metricas).
+  // 19/08/2026: "questoes" aqui reusa this.questoesNoDia(iso) - antes recalculava via
+  // questoesIds.length das sessoes do dia, o que podia divergir do numero "oficial" de
+  // questoesNoDia pro MESMO dia (inconsistencia dentro do proprio objeto Metricas).
   estatisticasDoDia(iso){
     const sessoesDoDia = this.sessoesNoDia(iso);
     return { segundos: sumTempo(sessoesDoDia), questoes: this.questoesNoDia(iso), paginas: this.paginasNoDia(iso) };
@@ -3759,12 +3768,16 @@ const Metricas = {
     const divisor = diasReais!=null ? Math.min(diasJanela, diasReais) : diasJanela;
     return this.paginasNaJanela(divisor)/divisor;
   },
+  // 26/08/2026: mesma migração de questoesNoDia (answerLog -> sessões manuais), aqui somando
+  // dentro da janela em vez de um dia só. Alimenta "Seu ritmo atual" em Meta por data alvo.
   ritmoQuestoesDia(diasJanela){
     diasJanela = diasJanela>0 ? diasJanela : 30;
     const diasReais = diasDesdeInicioPlanejamento();
     const divisor = diasReais!=null ? Math.min(diasJanela, diasReais) : diasJanela;
     const corte = addDays(todayStr(), -(divisor-1));
-    const qtd = (state.answerLog||[]).filter(a=> a.d>=corte).length;
+    const qtd = state.sessions
+      .filter(s=> s.tipo==='questoes' && dataLocalDe(s.timestampFim)>=corte)
+      .reduce((sum,s)=> sum + questoesRespondidasNaSessao(s), 0);
     return qtd/divisor;
   },
   // ---- QUESTOES MANUAIS (26/08/2026, banco extraído arquivado - qualidade ruim vs. apostila
