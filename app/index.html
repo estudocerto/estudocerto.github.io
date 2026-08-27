@@ -2073,62 +2073,9 @@
   <!-- REVISÃO -->
   <!-- PLANEJAMENTO (Ciclo + Metas + Revisão simplificada, fundidos em 26/08/2026) -->
   <section class="view" id="view-planejamento">
-    <div class="streak-box">
-      <div class="flame"></div>
-      <div>
-        <b id="streakBig">0 dias</b>
-        <div><span>de estudo consecutivo</span></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Meta diária</h2>
-      <div class="goal-row">
-        <div style="flex:1; font-size:.85rem; color:var(--text-mut);">Quantas páginas de teoria estudar por dia:</div>
-        <div class="stepper">
-          <button id="goalMinus">−</button>
-          <span id="goalVal">15</span>
-          <button id="goalPlus">+</button>
-        </div>
-      </div>
-      <div style="margin-top:12px; font-size:.85rem;">Hoje: <b id="todayProgress">0</b> / <span id="todayGoalLbl">15</span> páginas lidas</div>
-      <div class="bar" style="margin-top:8px;"><i id="todayBar" style="width:0%"></i></div>
-    </div>
-
-    <!-- ago/2026 (pedido do Bruno): "Meta por data alvo" e "Calendário de estudos" lado a lado,
-         cada um com metade da largura, em vez de empilhados ocupando a tela inteira - ver
-         .cal-metas-row. Em telas estreitas (celular) volta a empilhar (sem espaço pra dividir). -->
-    <div class="cal-metas-row">
-      <div class="card">
-        <h2>Meta por data alvo <span id="tipMetaDataAlvo"></span></h2>
-        <div class="settings-sub" style="margin-top:-6px;">Escolha até quando quer terminar de ler toda a teoria restante. O app calcula o ritmo necessário — em páginas/dia e em questões/dia — pra chegar lá no prazo, com base no seu ritmo atual.</div>
-        <!-- "Data de início" (ago/2026, pedido do Bruno): mostra a partir de quando o ritmo
-             atual (páginas/dia, questões/dia) está sendo medido - ver dataInicioPlanejamentoISO. -->
-        <div id="metaDataInicioLbl" style="font-size:.76rem; color:var(--text-mut); margin-bottom:10px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;"></div>
-        <div class="form-row" style="margin-bottom:10px;">
-          <label>Terminar até</label>
-          <input type="date" id="metaDataAlvo">
-        </div>
-        <div id="metaDataAlvoResult"></div>
-      </div>
-
-      <div class="card">
-        <h2>Calendário de estudos</h2>
-        <!-- ago/2026 (pedido do Bruno): trocou de um grid fixo de 14 dias pra um calendario
-             mensal de verdade, com selecao de intervalo (De/Ate) - ver renderCalendarioAtividade/
-             buildMesCalendarioHtml. Sem selecao, mostra o mes corrente inteiro. De/Ate ficam
-             juntos (largura de conteudo, nao esticados) em vez de nas pontas opostas da linha. -->
-        <div class="form-row cal-atividade-datas">
-          <div><label style="font-size:.7rem; color:var(--text-mut);">De</label><input type="date" id="calAtividadeDe"></div>
-          <div><label style="font-size:.7rem; color:var(--text-mut);">Até</label><input type="date" id="calAtividadeAte"></div>
-        </div>
-        <div id="calAtividadeMeses"></div>
-      </div>
-    </div>
-
-    <div id="revisaoResumo"></div>
-    <div id="revisaoList"></div>
-
+    <!-- 26/08/2026 (pedido do Bruno): a aba Planejamento deve começar pelo calendário
+         (Calendário da semana, dentro do Ciclo) - metas/streak e a agenda de revisão vêm
+         depois. -->
     <div id="cicloSetup" style="display:none;">
       <div class="card">
         <h2>Configurar Ciclo de Estudos</h2>
@@ -2209,6 +2156,62 @@
         <div id="cicloHistorico"></div>
       </div>
     </div>
+
+    <div class="streak-box">
+      <div class="flame"></div>
+      <div>
+        <b id="streakBig">0 dias</b>
+        <div><span>de estudo consecutivo</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Meta diária</h2>
+      <div class="goal-row">
+        <div style="flex:1; font-size:.85rem; color:var(--text-mut);">Quantas páginas de teoria estudar por dia:</div>
+        <div class="stepper">
+          <button id="goalMinus">−</button>
+          <span id="goalVal">15</span>
+          <button id="goalPlus">+</button>
+        </div>
+      </div>
+      <div style="margin-top:12px; font-size:.85rem;">Hoje: <b id="todayProgress">0</b> / <span id="todayGoalLbl">15</span> páginas lidas</div>
+      <div class="bar" style="margin-top:8px;"><i id="todayBar" style="width:0%"></i></div>
+    </div>
+
+    <!-- ago/2026 (pedido do Bruno): "Meta por data alvo" e "Calendário de estudos" lado a lado,
+         cada um com metade da largura, em vez de empilhados ocupando a tela inteira - ver
+         .cal-metas-row. Em telas estreitas (celular) volta a empilhar (sem espaço pra dividir). -->
+    <div class="cal-metas-row">
+      <div class="card">
+        <h2>Meta por data alvo <span id="tipMetaDataAlvo"></span></h2>
+        <div class="settings-sub" style="margin-top:-6px;">Escolha até quando quer terminar de ler toda a teoria restante. O app calcula o ritmo necessário — em páginas/dia e em questões/dia — pra chegar lá no prazo, com base no seu ritmo atual.</div>
+        <!-- "Data de início" (ago/2026, pedido do Bruno): mostra a partir de quando o ritmo
+             atual (páginas/dia, questões/dia) está sendo medido - ver dataInicioPlanejamentoISO. -->
+        <div id="metaDataInicioLbl" style="font-size:.76rem; color:var(--text-mut); margin-bottom:10px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;"></div>
+        <div class="form-row" style="margin-bottom:10px;">
+          <label>Terminar até</label>
+          <input type="date" id="metaDataAlvo">
+        </div>
+        <div id="metaDataAlvoResult"></div>
+      </div>
+
+      <div class="card">
+        <h2>Calendário de estudos</h2>
+        <!-- ago/2026 (pedido do Bruno): trocou de um grid fixo de 14 dias pra um calendario
+             mensal de verdade, com selecao de intervalo (De/Ate) - ver renderCalendarioAtividade/
+             buildMesCalendarioHtml. Sem selecao, mostra o mes corrente inteiro. De/Ate ficam
+             juntos (largura de conteudo, nao esticados) em vez de nas pontas opostas da linha. -->
+        <div class="form-row cal-atividade-datas">
+          <div><label style="font-size:.7rem; color:var(--text-mut);">De</label><input type="date" id="calAtividadeDe"></div>
+          <div><label style="font-size:.7rem; color:var(--text-mut);">Até</label><input type="date" id="calAtividadeAte"></div>
+        </div>
+        <div id="calAtividadeMeses"></div>
+      </div>
+    </div>
+
+    <div id="revisaoResumo"></div>
+    <div id="revisaoList"></div>
 
     <!-- 26/08/2026 (simplificação de IA): calendário mensal de revisões e "escolher o que
          revisar" (repositório) viram "ver mais", junto da explicação de como funciona a
@@ -5858,12 +5861,15 @@ function computeMastery(){
 // computeMastery() acima mede taxa de ACERTO entre as questões já tentadas (dominadas/tentadas)
 // - útil, mas não é "quanto do edital eu já domino": com 1 questão tentada e acertada, dava
 // 100%, ignorando as milhares de questões nunca tentadas e toda a teoria não lida (bug
-// reportado pelo Bruno). Domínio do edital agora é a média entre duas COBERTURAS, sempre
-// sobre o total do edital (matérias ativas), não sobre o que já foi tentado:
-//   cobertura de teoria   = páginas de teoria lidas / total de páginas de teoria
-//   cobertura de questões = questões dominadas (acertadas) / total de questões no banco
-// Média simples 50/50 - decisão de produto do Bruno (ler metade da teoria + dominar metade
-// das questões = 50%). Sobe bem mais devagar que a métrica antiga, o que é o objetivo.
+// reportado pelo Bruno). Domínio do edital ERA a média entre duas COBERTURAS (teoria lida +
+// questões dominadas), sempre sobre o total do edital, não sobre o que já foi tentado.
+// 26/08/2026 (pedido do Bruno): a parte de questões saiu da conta, por enquanto. Sem banco de
+// questões, "total de questões" não é mais um catálogo fixo - é a SOMA do que o Bruno for
+// declarando aula por aula (totalQuestoesAll/questoesTotalManual), que cresce aos poucos
+// conforme ele estuda. Usar isso como denominador dava uma cobertura de questões artificialmente
+// alta logo no início (poucas questões declaradas ainda = fração parecendo "dominada" cedo
+// demais) e distorcia o número geral. Até existir um jeito melhor de medir isso, "Domínio do
+// edital" reflete só a cobertura de teoria (páginas lidas / total de páginas do edital).
 function computeDominioEdital(){
   const totalTeoria = totalTheoryAll();
   const coberturaTeoria = totalTeoria>0 ? (pagesReadAll()/totalTeoria) : 0;
@@ -5871,9 +5877,11 @@ function computeDominioEdital(){
   const m = computeMastery();
   // Math.min(1,...) — 26/08/2026: com dados autorreportados (ver totalQuestoesAll), nada
   // impede o Bruno relatar mais acertos acumulados (revisões repetidas) do que o total que ele
-  // mesmo declarou pra apostila; trava em 100% em vez de estourar.
+  // mesmo declarou pra apostila; trava em 100% em vez de estourar. Calculada mas não entra
+  // no pct principal por enquanto (ver comentário acima) - fica disponível pro dia que a
+  // cobertura de questões tiver um denominador confiável de novo.
   const coberturaQuestoes = totalQ>0 ? Math.min(1, m.dominated/totalQ) : 0;
-  const pct = Math.round(((coberturaTeoria+coberturaQuestoes)/2)*100);
+  const pct = Math.round(coberturaTeoria*100);
   return {
     pct,
     coberturaTeoriaPct: Math.round(coberturaTeoria*100),
@@ -6642,7 +6650,7 @@ function renderHibrido(){
         <span class="hib-rot">Domínio do edital</span>
         <span class="hib-valor">${d.pct}%</span>
       </div>
-      <div class="hib-valor-legenda">média entre ${d.coberturaTeoriaPct}% da teoria lida e ${d.coberturaQuestoesPct}% das questões do banco dominadas</div>
+      <div class="hib-valor-legenda">${d.coberturaTeoriaPct}% da teoria do edital já lida (questões ainda não entram nessa conta, por enquanto)</div>
       ${reguaDominioHtml(d.pct)}
       <div class="hib-apoio">${apoio}</div>
     </div>`) + `
