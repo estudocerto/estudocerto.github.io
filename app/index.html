@@ -2353,6 +2353,16 @@
         <button class="btn danger sm" id="btnSyncDisconnect" style="display:none;"><svg class=ic-svg aria-hidden=true><use href=#ic-logout></use></svg> Sair</button>
       </div>
     </div>
+    <!-- 26/08/2026: ferramenta pra subir os PDFs das apostilas reorganizadas pro Storage
+         direto do navegador, usando a sessão já logada acima (ver uploadApostilasArquivos)
+         - evita precisar de senha de novo ou script separado. Fica recolhida por padrão. -->
+    <details class="card recolhivel" id="uploadApostilasCard">
+      <summary><h2>Ferramenta: enviar apostilas</h2><span class="marcador" aria-hidden="true"></span></summary>
+      <div class="settings-sub" style="margin-top:0;">Envia PDFs de apostilas pro Storage, usando a sessão logada acima (nenhuma senha extra). Selecione a pasta com as subpastas de matéria (ex.: "Apostilas em PDF - Pós-Edital") e clique em enviar. Reconhece a matéria pelo nome da subpasta - o que não bater com nenhuma matéria fica de fora, listado no log.</div>
+      <input type="file" id="uploadApostilasInput" webkitdirectory directory multiple style="margin:8px 0;">
+      <button class="btn block" id="btnUploadApostilas" disabled>Enviar apostilas selecionadas</button>
+      <div id="uploadApostilasLog" style="margin-top:10px; font-size:.76rem; font-family:monospace; max-height:280px; overflow:auto; white-space:pre-wrap; background:var(--bg); border-radius:10px; padding:8px; display:none;"></div>
+    </details>
     <div class="card" style="display:none;" id="updateCard">
       <h2>Atualizações</h2>
       <div class="settings-sub" id="updateStatus">—</div>
@@ -2701,6 +2711,11 @@ function apostilaRelPath(si,ai){
 // URL assinada (temporária, expira sozinha) usando a MESMA sessão de login que já
 // existe pra sincronizar o progresso — por isso só funciona logado, o que é
 // justamente o ponto: sem isso, qualquer um com o link do site abriria o material.
+// Tira acento/cedilha e reduz a [a-zA-Z0-9 -] - mesma normalização usada pro nome da pasta
+// de cada matéria dentro do bucket (ver comentário em abrirApostilaWeb/uploadApostilasArquivos).
+function stripFolderAccents(name){
+  return name.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9 \-]/g,'');
+}
 async function abrirApostilaWeb(si, ai){
   const rel = apostilaRelPath(si, ai);
   if(!rel) return;
@@ -2720,7 +2735,7 @@ async function abrirApostilaWeb(si, ai){
   // só o primeiro pedaço do caminho (nome da matéria) é "limpo" aqui; o nome
   // exibido na tela continua normal, com acento.
   const relParts = rel.split('/');
-  relParts[0] = relParts[0].normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9 \-]/g,'');
+  relParts[0] = stripFolderAccents(relParts[0]);
   const storageKey = 'Apostilas/' + relParts.join('/');
   const signUrl = cfg.url.replace(/\/$/,'') + '/storage/v1/object/sign/' + bucket + '/' + storageKey.split('/').map(encodeURIComponent).join('/');
   try{
@@ -2736,6 +2751,76 @@ async function abrirApostilaWeb(si, ai){
   }catch(e){
     toast('Não foi possível abrir a apostila: ' + e.message);
   }
+}
+// 26/08/2026 (pedido do Bruno: "automatize esse upload o maximo que voce puder"): ferramenta
+// em Ajustes pra subir os PDFs das apostilas reorganizadas direto pelo navegador, reusando a
+// MESMA sessão já logada (nenhuma senha nova, nenhum script à parte). Bruno seleciona a pasta
+// local (ex.: "Apostilas em PDF - Pós-Edital", com uma subpasta por matéria) e cada arquivo
+// pega o caminho relativo (webkitRelativePath) - o penúltimo pedaço do caminho é a matéria, o
+// último é o nome do arquivo. A matéria é reconhecida comparando o nome da subpasta (sem
+// acento/case) com o nome de cada matéria em SUBJECTS - assim funciona mesmo se a pasta local
+// tiver um nome levemente diferente (ex.: "Sistema" vs "Sistemas de Informação"), sem precisar
+// de uma lista fixa de pastas.
+function normKeySubject(name){
+  return stripFolderAccents(name).toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+function acharMateriaPorPastaLocal(nomePasta){
+  const alvo = normKeySubject(nomePasta);
+  let m = SUBJECTS.findIndex(s=> normKeySubject(s.name)===alvo);
+  if(m>=0) return m;
+  // fallback: mesma chave ignorando plural simples (ex.: "sistema" vs "sistemas")
+  const semS = alvo.replace(/s(?=[a-z])/g,'');
+  m = SUBJECTS.findIndex(s=> normKeySubject(s.name).replace(/s(?=[a-z])/g,'')===semS);
+  return m;
+}
+function logUpload(linha){
+  const el = document.getElementById('uploadApostilasLog');
+  if(!el) return;
+  el.style.display = '';
+  el.textContent += linha + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+async function uploadApostilasArquivos(fileList){
+  if(!syncEnabled()){
+    toast('Entre com seu e-mail e senha (em Ajustes → Sincronização) antes de enviar apostilas.');
+    return;
+  }
+  const token = await syncEnsureValidToken();
+  if(!token){ toast('Sessão expirada — entre de novo em Ajustes → Sincronização.'); return; }
+  const cfg = syncEffectiveProjectConfig();
+  const bucket = CURRICULO.apostilaStorageBucket || 'apostilas';
+  const logEl = document.getElementById('uploadApostilasLog');
+  if(logEl){ logEl.textContent = ''; logEl.style.display = ''; }
+  const pdfs = Array.from(fileList).filter(f=> /\.pdf$/i.test(f.name));
+  if(pdfs.length===0){ logUpload('Nenhum PDF encontrado na pasta selecionada.'); return; }
+  logUpload(`Encontrados ${pdfs.length} PDF(s). Enviando...`);
+  let ok=0, fail=0, pulados=0;
+  for(const file of pdfs){
+    const rel = file.webkitRelativePath || file.name;
+    const parts = rel.split('/');
+    const nomePasta = parts.length>=2 ? parts[parts.length-2] : null;
+    if(!nomePasta){ logUpload(`PULADO (sem subpasta de matéria): ${rel}`); pulados++; continue; }
+    const si = acharMateriaPorPastaLocal(nomePasta);
+    if(si<0){ logUpload(`PULADO (pasta "${nomePasta}" não bate com nenhuma matéria): ${rel}`); pulados++; continue; }
+    const folderKey = stripFolderAccents(SUBJECTS[si].name);
+    const storageKey = 'Apostilas/' + folderKey + '/' + file.name;
+    const url = cfg.url.replace(/\/$/,'') + '/storage/v1/object/' + bucket + '/' + storageKey.split('/').map(encodeURIComponent).join('/');
+    try{
+      const res = await fetch(url, {
+        method:'POST',
+        headers:{ apikey:cfg.key, Authorization:'Bearer '+token, 'x-upsert':'true' },
+        body: file
+      });
+      if(!res.ok){ const t = await res.text().catch(()=>''); throw new Error('HTTP '+res.status+' '+t.slice(0,120)); }
+      logUpload(`OK: ${SUBJECTS[si].name} / ${file.name}`);
+      ok++;
+    }catch(e){
+      logUpload(`FALHOU: ${nomePasta}/${file.name} — ${e.message}`);
+      fail++;
+    }
+  }
+  logUpload(`\nResumo: ${ok} enviado(s), ${fail} falharam, ${pulados} pulado(s) (pasta não reconhecida).`);
+  toast(`Upload concluído: ${ok} ok, ${fail} falhas, ${pulados} pulados.`);
 }
 
 /* ===================== ESTADO ===================== */
@@ -8887,6 +8972,21 @@ if(btnSyncSignUp) btnSyncSignUp.addEventListener('click', syncSignUpClick);
 if(btnSyncNow) btnSyncNow.addEventListener('click', syncRun);
 if(btnSyncDisconnect) btnSyncDisconnect.addEventListener('click', syncDisconnectClick);
 if(btnSyncAdvancedToggle) btnSyncAdvancedToggle.addEventListener('click', syncToggleAdvancedClick);
+const uploadApostilasInput = document.getElementById('uploadApostilasInput');
+const btnUploadApostilas = document.getElementById('btnUploadApostilas');
+if(uploadApostilasInput && btnUploadApostilas){
+  uploadApostilasInput.addEventListener('change', ()=>{
+    const n = uploadApostilasInput.files.length;
+    btnUploadApostilas.disabled = n===0;
+    setRotulo(btnUploadApostilas, n>0 ? `Enviar ${n} arquivo(s) selecionado(s)` : 'Enviar apostilas selecionadas');
+  });
+  btnUploadApostilas.addEventListener('click', async ()=>{
+    btnUploadApostilas.disabled = true;
+    const filesSnapshot = uploadApostilasInput.files;
+    await uploadApostilasArquivos(filesSnapshot);
+    btnUploadApostilas.disabled = false;
+  });
+}
 if(syncEnabled()){
   const pc = syncProjectConfig();
   if(pc){ document.getElementById('syncUrl').value = pc.url; document.getElementById('syncKey').value = pc.key; }
