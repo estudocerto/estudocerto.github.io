@@ -786,7 +786,11 @@
      coluna estreita (~1/4 da largura) e o espaço liberado ocupado pelos cards que antes
      ficavam empilhados abaixo dele (Escolher o que revisar / Questões erradas), lado a lado
      em vez de um embaixo do outro. Em telas estreitas volta a empilhar (1 coluna). */
-  .rev-mais-grid{display:grid; grid-template-columns:minmax(200px,25%) 1fr; gap:16px; align-items:start; margin-bottom:16px;}
+  .rev-mais-grid{display:grid; grid-template-columns:minmax(230px,25%) 1fr; gap:16px; align-items:start; margin-bottom:16px;}
+  /* min-width:0 é o que evita o "blowout" clássico do grid: sem isso, o item filho pode
+     forçar a coluna a crescer além do que o minmax(...,25%) permite, e o conteúdo (a grade
+     de 7 colunas do calendário) vaza pra fora do card, por cima do card vizinho. */
+  .rev-mais-grid > *{min-width:0;}
   .rev-mais-grid > #revCalendarCard{margin-bottom:0;}
   .rev-mais-col .card:last-child{margin-bottom:0;}
   @media(max-width:820px){
