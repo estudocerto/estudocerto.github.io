@@ -782,6 +782,16 @@
     display:flex; align-items:center; justify-content:center;
   }
   .rev-cal-cell.has.late .rev-cal-n{background:var(--danger);}
+  /* 27/08/2026: "Ver mais de revisão" reorganizado - calendário mensal encolhido pra uma
+     coluna estreita (~1/4 da largura) e o espaço liberado ocupado pelos cards que antes
+     ficavam empilhados abaixo dele (Escolher o que revisar / Questões erradas), lado a lado
+     em vez de um embaixo do outro. Em telas estreitas volta a empilhar (1 coluna). */
+  .rev-mais-grid{display:grid; grid-template-columns:minmax(200px,25%) 1fr; gap:16px; align-items:start; margin-bottom:16px;}
+  .rev-mais-grid > #revCalendarCard{margin-bottom:0;}
+  .rev-mais-col .card:last-child{margin-bottom:0;}
+  @media(max-width:820px){
+    .rev-mais-grid{grid-template-columns:1fr;}
+  }
   .rev-cal-legend{display:flex; gap:14px; margin-top:10px; font-size:.66rem; color:var(--text-mut); flex-wrap:wrap;}
   .rev-cal-legend span{display:flex; align-items:center; gap:5px;}
   .rev-cal-legend .dot{width:9px; height:9px; border-radius:3px; display:inline-block;}
@@ -2218,33 +2228,37 @@
          revisão espaçada - a lista de pendentes acima já cobre o uso do dia a dia. -->
     <details class="card recolhivel">
       <summary><h2>Ver mais de revisão</h2><span class="marcador" aria-hidden="true"></span></summary>
-      <div class="card" id="revCalendarCard" style="margin-bottom:16px;">
-        <h2>Calendário de revisões <span id="tipCalendarioRevisao"></span></h2>
-        <div class="rev-cal-head">
-          <button class="rev-cal-nav" id="revCalPrev" title="Mês anterior" aria-label="Mês anterior">◀</button>
-          <div class="rev-cal-month" id="revCalMonth"></div>
-          <button class="rev-cal-nav" id="revCalNext" title="Próximo mês" aria-label="Próximo mês">▶</button>
+      <div class="rev-mais-grid">
+        <div class="card" id="revCalendarCard">
+          <h2>Calendário de revisões <span id="tipCalendarioRevisao"></span></h2>
+          <div class="rev-cal-head">
+            <button class="rev-cal-nav" id="revCalPrev" title="Mês anterior" aria-label="Mês anterior">◀</button>
+            <div class="rev-cal-month" id="revCalMonth"></div>
+            <button class="rev-cal-nav" id="revCalNext" title="Próximo mês" aria-label="Próximo mês">▶</button>
+          </div>
+          <div class="rev-cal-grid" id="revCalGrid"></div>
+          <div class="rev-cal-legend">
+            <span><i class="dot late"></i>Atrasada</span>
+            <span><i class="dot today"></i>Hoje</span>
+            <span><i class="dot soon"></i>Agendada</span>
+            <span><i class="dot prev"></i>Prevista (etapas seguintes)</span>
+          </div>
+          <div class="rev-cal-dia" id="revCalDia"></div>
         </div>
-        <div class="rev-cal-grid" id="revCalGrid"></div>
-        <div class="rev-cal-legend">
-          <span><i class="dot late"></i>Atrasada</span>
-          <span><i class="dot today"></i>Hoje</span>
-          <span><i class="dot soon"></i>Agendada</span>
-          <span><i class="dot prev"></i>Prevista (etapas seguintes)</span>
+        <div class="rev-mais-col">
+          <div class="card" id="revRepoCard" style="margin-bottom:16px;">
+            <h2>Escolher o que revisar <span id="tipRepoRevisao"></span></h2>
+            <div class="settings-sub" style="margin-top:0;">Todas as aulas que você já concluiu, com a sua última avaliação. Filtre pelo que achou difícil e revise quando quiser, fora do cronograma.</div>
+            <div class="rev-repo-filtros" id="revRepoFiltros"></div>
+            <input class="search" type="search" id="revRepoBusca" placeholder="Buscar aula ou matéria...">
+            <div id="revRepoList"></div>
+          </div>
+          <div class="card" id="questoesErradasCard">
+            <h2>Questões erradas por matéria</h2>
+            <div class="settings-sub" style="margin-top:0;">Os números que você marcou como errados ao registrar quantas questões fez/acertou de cada apostila (etapa de Exercícios, acima).</div>
+            <div id="questoesErradasList"></div>
+          </div>
         </div>
-        <div class="rev-cal-dia" id="revCalDia"></div>
-      </div>
-      <div class="card" id="revRepoCard" style="margin-bottom:16px;">
-        <h2>Escolher o que revisar <span id="tipRepoRevisao"></span></h2>
-        <div class="settings-sub" style="margin-top:0;">Todas as aulas que você já concluiu, com a sua última avaliação. Filtre pelo que achou difícil e revise quando quiser, fora do cronograma.</div>
-        <div class="rev-repo-filtros" id="revRepoFiltros"></div>
-        <input class="search" type="search" id="revRepoBusca" placeholder="Buscar aula ou matéria...">
-        <div id="revRepoList"></div>
-      </div>
-      <div class="card" id="questoesErradasCard" style="margin-bottom:16px;">
-        <h2>Questões erradas por matéria</h2>
-        <div class="settings-sub" style="margin-top:0;">Os números que você marcou como errados ao registrar quantas questões fez/acertou de cada apostila (etapa de Exercícios, acima).</div>
-        <div id="questoesErradasList"></div>
       </div>
       <div class="card">
         <h2>Como funciona a revisão espaçada</h2>
@@ -8057,9 +8071,16 @@ function metaDataAlvoCalc(dataAlvo){
   const folgaDiasQuestoes = ritmoAtualQuestoes>0
     ? dias - Math.ceil(questoesRestantes/ritmoAtualQuestoes)
     : (questoesRestantes<=0 ? dias : null);
+  // 27/08/2026: data estimada de término de TODA a teoria restante no ritmo atual (independente
+  // da data alvo escolhida) - pedido do Bruno, pra saber "se eu continuar assim, quando termino
+  // de verdade", não só se bate ou não o prazo escolhido. null quando não dá pra estimar (sem
+  // ritmo atual registrado ainda e ainda falta página).
+  const dataEstimadaTerminoTeoria = paginasRestantes<=0
+    ? hoje
+    : (ritmoAtualPaginas>0 ? addDays(hoje, Math.ceil(paginasRestantes/ritmoAtualPaginas)) : null);
   return {
     dias, paginasRestantes, questoesRestantes, paginasPorDia, questoesPorDia, ritmoLeitura, ritmoResolucao,
-    ritmoAtualPaginas, ritmoAtualQuestoes, folgaDiasPaginas, folgaDiasQuestoes,
+    ritmoAtualPaginas, ritmoAtualQuestoes, folgaDiasPaginas, folgaDiasQuestoes, dataEstimadaTerminoTeoria,
     tempoPaginasSeg: ritmoLeitura!=null ? paginasPorDia*ritmoLeitura : null,
     tempoQuestoesSeg: ritmoResolucao!=null ? questoesPorDia*ritmoResolucao : null,
   };
@@ -8137,6 +8158,7 @@ function renderMetaDataAlvo(){
       <div class="big">${c.paginasPorDia} páginas/dia</div>
       ${folgaAtrasoHtml(c.folgaDiasPaginas)}
       <div class="sub">${c.ritmoLeitura!=null ? `No seu ritmo de leitura por página (${fmtDuracao(c.ritmoLeitura)}/página), isso é ~${fmtDuracao(c.tempoPaginasSeg)} de leitura por dia.` : 'Ainda não há ritmo de leitura suficiente registrado pra estimar o tempo diário necessário.'}</div>
+      <div class="sub">${c.dataEstimadaTerminoTeoria!=null ? `No seu ritmo atual (${Math.round(c.ritmoAtualPaginas*10)/10} pág./dia), você termina toda a teoria em ~${fmtDate(c.dataEstimadaTerminoTeoria)}.` : 'Ainda não há ritmo atual suficiente registrado pra estimar a data real de término.'}</div>
       <button class="btn ghost sm" id="btnAplicarMetaPaginas">Usar ${c.paginasPorDia} como meta diária</button>
     </div>
     <div class="meta-alvo-block">
