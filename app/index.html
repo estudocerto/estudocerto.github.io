@@ -765,10 +765,16 @@
     background:var(--card); color:var(--text); cursor:pointer; font-size:.7rem; line-height:1;
   }
   .rev-cal-nav:hover{background:var(--bg);}
-  .rev-cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
-  .rev-cal-wd{font-size:.6rem; text-transform:uppercase; letter-spacing:.4px; color:var(--text-mut); font-weight:700; text-align:center; padding-bottom:4px;}
+  .rev-cal-grid{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px;}
+  /* 27/08/2026: min-width:0 (via minmax(0,1fr) acima e aqui embaixo) - mesmo "blowout" de
+     grid do card por fora, só que agora um nível mais fundo: com o calendário numa coluna
+     estreita, o texto de "SEG"/"QUI"/etc e os números de dois dígitos tinham largura mínima
+     intrínseca maior que a fatia de 1fr disponível, e essas 2 últimas colunas (sex/sáb) vazavam
+     pra fora do card. Sem isso, min-width:0 no card por fora (regra .rev-mais-grid > *) não é
+     suficiente, porque o vazamento acontece dentro desta grade interna de 7 colunas.  */
+  .rev-cal-wd{font-size:.6rem; text-transform:uppercase; letter-spacing:.4px; color:var(--text-mut); font-weight:700; text-align:center; padding-bottom:4px; min-width:0; overflow:hidden;}
   .rev-cal-cell{
-    position:relative; aspect-ratio:1; border-radius:9px; background:var(--bg);
+    position:relative; aspect-ratio:1; border-radius:9px; background:var(--bg); min-width:0;
     display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:650; color:var(--text-mut);
   }
   .rev-cal-cell.empty{background:transparent;}
