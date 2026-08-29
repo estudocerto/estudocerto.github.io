@@ -1,7 +1,6 @@
 # Estudo Certo
 
-Aplicativo pessoal de acompanhamento de estudos para o concurso da Transpetro
-(Ênfase 1: Administração, banca CESGRANRIO). Uso individual — não é um
+Aplicativo pessoal de acompanhamento de estudos. Uso individual — não é um
 produto público.
 
 ## O que é
@@ -15,8 +14,7 @@ Um app single-page em HTML/CSS/JS vanilla (sem build step, sem framework) que:
   regride), **Taxa na 1ª Tentativa** e **Questões Pendentes**;
 - agenda revisão espaçada por apostila (padrão 7/15/30 dias, customizável por
   disciplina);
-- inclui um motor de Provas Anteriores com 9 cadernos oficiais CESGRANRIO
-  (Petrobras e Transpetro), ~600 questões, gabarito oficial;
+- inclui um motor de Provas, ~600 questões, gabarito oficial;
 - sincroniza progresso via Supabase (Postgres + Auth + RLS), com acesso
   restrito a uma lista de e-mails autorizados (`allowed_emails`).
 
