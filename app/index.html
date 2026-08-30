@@ -5177,27 +5177,42 @@ function gerarSemanaCalendario(forcar){
 // 30/08/2026 (pedido do Bruno, "ciclo bonus"): variante de gerarSemanaCalendario() pra quando
 // o ciclo fecha ANTES do fim da semana (ver checkCicloCompletion) - em vez de redistribuir a
 // semana inteira (reescreveria segunda/terça, que já passaram), preenche só os dias que sobram
-// (diasRestantesSemana(), hoje incluído) com uma fração da meta da rodada nova, proporcional a
-// `horasBonus` (escolhido/confirmado pelo usuário no modal, sugestão default = horasPorSemana
-// × dias-que-sobram/7 - ver abrirCicloBonusModal). horasPorSemana em si NUNCA muda aqui - é só
-// um top-up pontual do Calendário, não uma reconfiguração permanente da meta semanal.
-// Mesma lógica de alocação de gerarSemanaCalendario (dia de casa primeiro, depois intercalação
-// por capacidade/peso do dia), só restrita ao subconjunto de dias-alvo - com UMA diferença
-// deliberada: não grava c.diasPadrao novo pra matéria sem casa ainda (passo 2) - o bônus é
-// pontual, não deve virar "dia de casa" permanente por causa da sobra de uma semana só.
+// (diasRestantesSemana(), hoje incluído) com `horasBonus` (escolhido/confirmado pelo usuário no
+// modal, sugestão default = horasPorSemana × dias-que-sobram/7 - ver abrirCicloBonusModal).
+// horasPorSemana em si NUNCA muda aqui - é só um top-up pontual do Calendário, não uma
+// reconfiguração permanente da meta semanal.
+//
+// 30/08/2026 (2ª rodada, bug reportado pelo Bruno - "pedi 3h, só gerou 45min"): a 1ª versão
+// pegava a meta SEMANAL de cada matéria (já uma fatia pequena, dividida entre ~16 matérias) e
+// encolhia ainda mais pela fração horasBonus/horasPorSemana - com poucas horas de bônus, a
+// fatia resultante de quase toda matéria caía abaixo do piso de 30min de
+// decomporMateriaEmItens() e SUMIA da lista silenciosamente, sobrando só a matéria (ou duas)
+// cuja fatia por acaso ficasse nessa faixa. Corrigido: em vez de encolher a fatia semanal de
+// cada matéria, as horas do bônus agora são distribuídas do ZERO entre as matérias com peso,
+// em unidades inteiras de 30min (distribuirInteiros, método dos maiores restos) - cada matéria
+// contemplada recebe pelo menos um bloco de 30min inteiro (nunca uma fração que se perde), e a
+// soma bate exatamente com horasBonus (arredondado pro múltiplo de 30min mais próximo).
 function gerarCicloBonus(horasBonus){
   const c = ensureCalendarioDefaults();
   const cc = state.ciclo;
   const diasAlvo = diasRestantesSemana();
   if(!cc || !cc.horasPorSemana || cicloPesoTotal()<=0 || !diasAlvo.length || !(horasBonus>0)) return;
-  const fator = horasBonus/cc.horasPorSemana;
+
+  const pesos = {};
+  SUBJECTS.forEach((s,si)=>{ const p = getCicloPeso(si); if(p>0) pesos[si] = p; });
+  if(Object.keys(pesos).length===0) return;
+  const totalBlocosBonus = Math.max(1, Math.round(horasBonus*60/30)); // unidades de 30min
+  const blocosPorMateria = distribuirInteiros(pesos, totalBlocosBonus);
 
   const itensPorMateria = {};
-  Metricas.materiasAtivas().forEach(({si})=>{
-    if(getCicloPeso(si)<=0) return;
-    const minutosMateria = Math.round(cicloMetaSegundos(si)/60*fator);
-    const lista = decomporMateriaEmItens(si, minutosMateria);
-    if(lista.length) itensPorMateria[si] = lista;
+  Object.keys(blocosPorMateria).forEach(siStr=>{
+    let restantes = blocosPorMateria[siStr]||0;
+    if(restantes<=0) return;
+    const si = Number(siStr);
+    const lista = [];
+    while(restantes>=2){ lista.push({ si, qtd:2, min:30 }); restantes -= 2; }
+    if(restantes>0) lista.push({ si, qtd:1, min:30 });
+    itensPorMateria[siStr] = lista;
   });
   if(Object.keys(itensPorMateria).length===0) return; // nada a distribuir, nao mexe nos dias
 
