@@ -1806,11 +1806,27 @@
   .cal-dia-nav .cal-dia-aba{flex:0 0 auto; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text-mut); font-size:.74rem; font-weight:700;}
   .cal-dia-nav .cal-dia-aba.sel{background:var(--green); color:var(--on-accent); border-color:var(--green);}
   .cal-dia-nav .cal-dia-aba.hoje-marcador::after{content:'•'; margin-left:3px;}
+  /* 30/08/2026 (pedido do Bruno, "quando passo o dedo pra rolar a tela, as matérias
+     desconfiguram"): .cal-block usa touch-action:none (linha mais abaixo) pra habilitar
+     arrastar-pra-reordenar via Pointer Events - mas isso também captura QUALQUER toque
+     iniciado em cima de um bloco, inclusive um toque que só queria rolar a página, e o
+     gesto vira um arrasto acidental. Só no celular, blocos ficam "travados" (rolagem normal,
+     tocar ainda abre a sessão) até o usuário apertar "Editar". Em modo edição, mostra os 7
+     dias de novo (rolando de lado) - só assim dá pra arrastar uma matéria pra OUTRO dia
+     (arrastar só funciona entre dias que estão de fato visíveis/achavéis por
+     elementFromPoint, ver wireCalendarDrag) - e reaproveita o `.cal-block` "solto"
+     (touch-action:none, igual desktop) sem precisar de nenhuma lógica de arrastar nova. */
+  .cal-dia-editar{display:none; flex:0 0 auto; width:32px; height:32px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text-mut);}
+  .cal-dia-editar.ativo{background:var(--green); color:var(--on-accent); border-color:var(--green);}
   @media(max-width:599px){
     .cal-dia-nav{display:flex;}
+    .cal-dia-editar{display:flex; align-items:center; justify-content:center;}
     .cal-grid{display:block;}
     .cal-day-col{display:none;}
     .cal-day-col.cal-dia-selecionado{display:block;}
+    .cal-grid:not(.cal-editando) .cal-block{cursor:default; touch-action:pan-y;}
+    .cal-grid.cal-editando{display:flex; gap:5px; overflow-x:auto; padding-bottom:4px;}
+    .cal-grid.cal-editando .cal-day-col{display:block; flex:0 0 150px;}
   }
   .cal-day-hd{text-align:center; margin-bottom:8px;}
   .cal-day-hd .nm{font-size:.82rem; font-weight:800; color:var(--text);}
@@ -10837,6 +10853,12 @@ let cicloEditMode = false;
 // nao escolhido nesta sessao -> cai no dia de hoje. So estado de TELA (nao progresso), nao
 // precisa sobreviver a um reload.
 let calDiaSelecionado = null;
+// 30/08/2026 (pedido do Bruno, "as materias desconfiguram quando rolo a tela"): so importa em
+// tela estreita (ver CSS .cal-dia-editar/.cal-grid.cal-editando, @media(max-width:599px)) - em
+// tela larga o arrastar sempre funcionou direto, sem modo edicao nenhum. Comeca sempre false a
+// cada visita na aba (nao precisa persistir - e' so um modo temporario de "vou reorganizar
+// agora").
+let calEditMode = false;
 function renderCicloSequencia(){
   const c = ensureCicloDefaults();
   const wrap = document.getElementById('cicloSequencia');
@@ -11276,23 +11298,42 @@ function renderCalendario(){
     return;
   }
   if(calDiaNav){
-    const idxSel = DIAS_SEMANA.indexOf(calDiaSelecionado);
-    calDiaNav.innerHTML = `
-      <button type="button" class="cal-dia-seta" id="calDiaPrev" aria-label="Dia anterior">‹</button>
-      <div class="cal-dia-abas">${DIAS_SEMANA.map((d,di)=>
-        `<button type="button" class="cal-dia-aba${d===calDiaSelecionado?' sel':''}${di===hojeIdxSemana?' hoje-marcador':''}" data-dia="${d}">${DIAS_SEMANA_LABEL[d]}</button>`
-      ).join('')}</div>
-      <button type="button" class="cal-dia-seta" id="calDiaNext" aria-label="Próximo dia">›</button>`;
-    calDiaNav.querySelectorAll('.cal-dia-aba').forEach(btn=>{
-      btn.addEventListener('click', ()=>{ calDiaSelecionado = btn.dataset.dia; renderCalendario(); });
-    });
-    document.getElementById('calDiaPrev').addEventListener('click', ()=>{
-      calDiaSelecionado = DIAS_SEMANA[Math.max(0, idxSel-1)]; renderCalendario();
-    });
-    document.getElementById('calDiaNext').addEventListener('click', ()=>{
-      calDiaSelecionado = DIAS_SEMANA[Math.min(DIAS_SEMANA.length-1, idxSel+1)]; renderCalendario();
+    if(calEditMode){
+      // Modo edição (só celular - ver CSS): todos os dias visíveis (rolando de lado) pra dar
+      // pra arrastar uma matéria de um dia pro outro. Abas/setas não fazem sentido aqui (não
+      // tem "um dia atual" enquanto todos estão à mostra) - vira só um aviso + "Concluir".
+      calDiaNav.innerHTML = `
+        <span style="flex:1; font-size:.72rem; color:var(--text-mut);">Arraste as matérias entre os dias</span>
+        <button type="button" class="cal-dia-editar ativo" id="calDiaEditarToggle" aria-label="Concluir edição" title="Concluir edição">
+          <svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg>
+        </button>`;
+    } else {
+      const idxSel = DIAS_SEMANA.indexOf(calDiaSelecionado);
+      calDiaNav.innerHTML = `
+        <button type="button" class="cal-dia-seta" id="calDiaPrev" aria-label="Dia anterior">‹</button>
+        <div class="cal-dia-abas">${DIAS_SEMANA.map((d,di)=>
+          `<button type="button" class="cal-dia-aba${d===calDiaSelecionado?' sel':''}${di===hojeIdxSemana?' hoje-marcador':''}" data-dia="${d}">${DIAS_SEMANA_LABEL[d]}</button>`
+        ).join('')}</div>
+        <button type="button" class="cal-dia-seta" id="calDiaNext" aria-label="Próximo dia">›</button>
+        <button type="button" class="cal-dia-editar" id="calDiaEditarToggle" aria-label="Editar - arrastar matérias entre dias" title="Editar - arrastar matérias entre dias">
+          <svg class=ic-svg aria-hidden=true><use href=#ic-pencil></use></svg>
+        </button>`;
+      calDiaNav.querySelectorAll('.cal-dia-aba').forEach(btn=>{
+        btn.addEventListener('click', ()=>{ calDiaSelecionado = btn.dataset.dia; renderCalendario(); });
+      });
+      document.getElementById('calDiaPrev').addEventListener('click', ()=>{
+        calDiaSelecionado = DIAS_SEMANA[Math.max(0, idxSel-1)]; renderCalendario();
+      });
+      document.getElementById('calDiaNext').addEventListener('click', ()=>{
+        calDiaSelecionado = DIAS_SEMANA[Math.min(DIAS_SEMANA.length-1, idxSel+1)]; renderCalendario();
+      });
+    }
+    document.getElementById('calDiaEditarToggle').addEventListener('click', ()=>{
+      calEditMode = !calEditMode;
+      renderCalendario();
     });
   }
+  grid.classList.toggle('cal-editando', calEditMode);
   grid.innerHTML = DIAS_SEMANA.map((d,di)=>{
     const blocos = c.blocos[d]||[];
     const feitos = blocos.filter(b=>b.done).length;
