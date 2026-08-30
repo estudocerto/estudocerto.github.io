@@ -1876,13 +1876,28 @@
      em vez de uma linha reta, difícil de ler de relance. Reestruturado em 3 fileiras fixas
      (valor / trilho da barra / rótulo do dia) via .weekbar-track: agora o valor e o rótulo
      do dia sempre alinham na mesma altura entre colunas, e só a barra varia dentro do
-     trilho — a barra cresce a partir do fundo do trilho, não do fundo do card. */
-  .weekbar-wrap{display:flex; align-items:stretch; gap:6px; height:140px; padding-top:4px; overflow-x:auto; overflow-y:hidden;}
-  .weekbar-col{flex:1 1 0; min-width:40px; display:flex; flex-direction:column; align-items:center; height:100%; gap:4px;}
-  .weekbar-val{flex:0 0 auto; font-size:.62rem; color:var(--text); font-weight:800; white-space:nowrap;}
+     trilho — a barra cresce a partir do fundo do trilho, não do fundo do card.
+     30/08/2026 (2ª rodada, "ainda está muito ruim" / "quero que seja adaptável ao tamanho
+     do quadro, não que mude o tamanho do widget"): a 1ª correção resolveu o zigue-zague,
+     mas testada num card estreito (widget em 1/3 ou metade da largura) os valores ainda
+     vazavam uns por cima dos outros — min-width sozinho não bastava porque o texto
+     (".weekbar-val") não tinha limite de largura e transbordava pra fora da própria coluna
+     em vez de cortar. Duas camadas agora: (1) ".weekbar-val"/".weekbar-lbl" com
+     max-width:100%+ellipsis — nunca mais vazam pra coluna vizinha, na pior hipótese truncam
+     com "…"; (2) wireWeekbarResponsive() (JS, ResizeObserver) mede a largura REAL do card
+     e, quando não cabe confortavelmente, aplica ".weekbar-tight" — some só o valor inline
+     (a barra e o rótulo do dia continuam, valor exato via title/tooltip), abaixo disso as
+     colunas ainda podem encolher mais (ver min-width em .weekbar-tight) antes de precisar
+     rolar. Reage a redimensionar o widget, a janela, abrir/fechar o menu — sem precisar
+     mudar o tamanho do widget pra funcionar bem em qualquer largura. */
+  .weekbar-wrap{display:flex; align-items:stretch; gap:5px; height:140px; padding-top:4px; overflow-x:auto; overflow-y:hidden;}
+  .weekbar-col{flex:1 1 0; min-width:46px; display:flex; flex-direction:column; align-items:center; height:100%; gap:4px;}
+  .weekbar-val{flex:0 0 auto; max-width:100%; overflow:hidden; text-overflow:ellipsis; font-size:.62rem; color:var(--text); font-weight:800; white-space:nowrap;}
   .weekbar-track{flex:1 1 auto; min-height:0; width:100%; display:flex; align-items:flex-end; justify-content:center;}
   .weekbar-fill{width:100%; max-width:24px; border-radius:6px 6px 0 0; background:var(--green); min-height:3px;}
-  .weekbar-lbl{flex:0 0 auto; font-size:.62rem; color:var(--text-mut); font-weight:700;}
+  .weekbar-lbl{flex:0 0 auto; max-width:100%; overflow:hidden; text-overflow:ellipsis; font-size:.62rem; color:var(--text-mut); font-weight:700;}
+  .weekbar-wrap.weekbar-tight .weekbar-col{min-width:20px;}
+  .weekbar-wrap.weekbar-tight .weekbar-val{display:none;}
   .weekbar-wrap.dense{gap:2px;}
   .weekbar-wrap.dense .weekbar-col{min-width:14px; gap:3px;}
   .weekbar-wrap.dense .weekbar-fill{max-width:10px; border-radius:3px 3px 0 0;}
@@ -6396,7 +6411,29 @@ function buildEstudoSemanalHtml(modo, numDias){
       <div class="weekbar-lbl">${lbl}</div>
     </div>`;
   }).join('');
-  return `<div class="weekbar-wrap${numDias>14?' dense':''}">${cols}</div>`;
+  return `<div class="weekbar-wrap${numDias>14?' dense':''}" data-cols="${numDias}">${cols}</div>`;
+}
+// 30/08/2026 (pedido do Bruno: "não quero que mude o tamanho, quero que ele seja adaptável
+// a depender do tamanho do quadro") — em vez de forçar o widget pra "Cheio", o proprio
+// grafico passa a medir a largura REAL do card (ResizeObserver, reage a redimensionar o
+// widget, a janela, abrir/fechar o menu lateral etc.) e decide sozinho se cabe o valor
+// (".weekbar-val") ao lado de cada barra sem cortar. Quando não cabe, some só o valor
+// inline (classe .weekbar-tight, ver CSS) — a barra e o rótulo do dia continuam, e o valor
+// exato segue disponível no title (tooltip/toque longo), igual ao modo denso (>14 dias).
+function wireWeekbarResponsive(card){
+  const wrap = card.querySelector('.weekbar-wrap');
+  if(!wrap || typeof ResizeObserver==='undefined') return;
+  const cols = parseInt(wrap.dataset.cols,10) || wrap.querySelectorAll('.weekbar-col').length;
+  if(!cols) return;
+  const dense = wrap.classList.contains('dense');
+  const minColConfortavel = dense ? 14 : 46; // ver .weekbar-col min-width no CSS
+  const gap = dense ? 2 : 5;
+  const necessario = cols*minColConfortavel + (cols-1)*gap;
+  const ro = new ResizeObserver(entries=>{
+    const larguraReal = entries[0].contentRect.width;
+    wrap.classList.toggle('weekbar-tight', larguraReal < necessario);
+  });
+  ro.observe(wrap);
 }
 function buildConsistenciaHtml(){
   const c = consistencia(30);
@@ -6949,6 +6986,7 @@ function renderPainel(){
       });
     }
     grid.appendChild(card);
+    if(w.metricId==='estudo_semanal_grafico') wireWeekbarResponsive(card);
   });
   wireTooltips(grid);
   wireWidgetControls(grid);
