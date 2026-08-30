@@ -1794,39 +1794,33 @@
   .cal-day-col{min-height:100px; background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:8px 4px; transition:background .12s ease, border-color .12s ease; min-width:0; container-type:inline-size;}
   .cal-day-col.hoje{border-color:var(--green); box-shadow:inset 0 0 0 1px var(--green);}
   .cal-day-col.cal-drop-hover{background:color-mix(in srgb, var(--green) 10%, var(--bg));}
-  /* 30/08/2026 (pedido do Bruno, "ainda não está bom no Safari... essa é a visão que eu mais
-     uso"): mesmo truncado, o nome da matéria não cabe de forma legível em 1/7 da largura de um
-     celular. Barra de navegação (abas Seg..Dom + setas ‹/›) só aparece em telas estreitas (ver
-     @media abaixo) - em telas largas fica escondida e a grade de 7 colunas continua idêntica a
-     sempre. Ver renderCalendario/calDiaSelecionado. */
+  /* 30/08/2026 (pedido do Bruno, "essa visão de múltiplos dias vira o padrão no celular"):
+     em telas estreitas o calendário sempre mostra os 7 dias em colunas de largura fixa,
+     rolando de lado (sem abas, sem "1 dia por vez" - isso foi tentado antes e substituído por
+     pedido dele). Nome de matéria sempre legível numa coluna de ~150px, bem diferente do
+     antigo grid de 7 frações da largura (~45px cada, ilegível - ver comentário de
+     .cal-block-nm mais abaixo pra esse capítulo anterior). Em tela larga (desktop/tablet)
+     nada disso entra - a grade original de 7 colunas iguais continua intocada. */
   .cal-dia-nav{display:none; align-items:center; gap:6px; margin-bottom:8px;}
   .cal-dia-nav .cal-dia-seta{flex:0 0 auto; width:32px; height:32px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:.9rem;}
-  .cal-dia-nav .cal-dia-abas{flex:1 1 auto; display:flex; gap:3px; overflow-x:auto; scrollbar-width:none;}
-  .cal-dia-nav .cal-dia-abas::-webkit-scrollbar{display:none;}
-  .cal-dia-nav .cal-dia-aba{flex:0 0 auto; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text-mut); font-size:.74rem; font-weight:700;}
-  .cal-dia-nav .cal-dia-aba.sel{background:var(--green); color:var(--on-accent); border-color:var(--green);}
-  .cal-dia-nav .cal-dia-aba.hoje-marcador::after{content:'•'; margin-left:3px;}
   /* 30/08/2026 (pedido do Bruno, "quando passo o dedo pra rolar a tela, as matérias
      desconfiguram"): .cal-block usa touch-action:none (linha mais abaixo) pra habilitar
      arrastar-pra-reordenar via Pointer Events - mas isso também captura QUALQUER toque
-     iniciado em cima de um bloco, inclusive um toque que só queria rolar a página, e o
-     gesto vira um arrasto acidental. Só no celular, blocos ficam "travados" (rolagem normal,
-     tocar ainda abre a sessão) até o usuário apertar "Editar". Em modo edição, mostra os 7
-     dias de novo (rolando de lado) - só assim dá pra arrastar uma matéria pra OUTRO dia
-     (arrastar só funciona entre dias que estão de fato visíveis/achavéis por
-     elementFromPoint, ver wireCalendarDrag) - e reaproveita o `.cal-block` "solto"
-     (touch-action:none, igual desktop) sem precisar de nenhuma lógica de arrastar nova. */
+     iniciado em cima de um bloco, inclusive um toque que só queria rolar (a página pra baixo,
+     ou a fileira de dias pro lado), e o gesto virava um arrasto acidental. Só no celular,
+     blocos ficam "travados" por padrão (touch-action:auto - libera rolagem nativa nas DUAS
+     direções, já que agora dá pra rolar tanto a página quanto a fileira de dias; tocar ainda
+     abre a sessão) até o usuário apertar "Editar", que volta pro touch-action:none de sempre
+     (igual desktop) pra soltar o arrastar-pra-reordenar/mover-de-dia via wireCalendarDrag -
+     sem precisar de nenhuma lógica de arrastar nova, só reaproveita a que já existe. */
   .cal-dia-editar{display:none; flex:0 0 auto; width:32px; height:32px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text-mut);}
   .cal-dia-editar.ativo{background:var(--green); color:var(--on-accent); border-color:var(--green);}
   @media(max-width:599px){
     .cal-dia-nav{display:flex;}
     .cal-dia-editar{display:flex; align-items:center; justify-content:center;}
-    .cal-grid{display:block;}
-    .cal-day-col{display:none;}
-    .cal-day-col.cal-dia-selecionado{display:block;}
-    .cal-grid:not(.cal-editando) .cal-block{cursor:default; touch-action:pan-y;}
-    .cal-grid.cal-editando{display:flex; gap:5px; overflow-x:auto; padding-bottom:4px;}
-    .cal-grid.cal-editando .cal-day-col{display:block; flex:0 0 150px;}
+    .cal-grid{display:flex; gap:5px; overflow-x:auto; padding-bottom:4px;}
+    .cal-day-col{flex:0 0 150px;}
+    .cal-grid:not(.cal-editando) .cal-block{cursor:default; touch-action:auto;}
   }
   .cal-day-hd{text-align:center; margin-bottom:8px;}
   .cal-day-hd .nm{font-size:.82rem; font-weight:800; color:var(--text);}
@@ -10848,11 +10842,6 @@ function buildCicloDonutRestanteHtml(centerText){
   return `<div class="ciclo-donut" style="background:conic-gradient(${stops.join(',')});"><div class="ciclo-donut-txt">${centerText}</div></div>`;
 }
 let cicloEditMode = false;
-// 30/08/2026 (pedido do Bruno, calendario ilegivel no celular): qual dia esta aberto na visao
-// "um dia por vez" de telas estreitas (ver renderCalendario/CSS .cal-dia-nav). null = ainda
-// nao escolhido nesta sessao -> cai no dia de hoje. So estado de TELA (nao progresso), nao
-// precisa sobreviver a um reload.
-let calDiaSelecionado = null;
 // 30/08/2026 (pedido do Bruno, "as materias desconfiguram quando rolo a tela"): so importa em
 // tela estreita (ver CSS .cal-dia-editar/.cal-grid.cal-editando, @media(max-width:599px)) - em
 // tela larga o arrastar sempre funcionou direto, sem modo edicao nenhum. Comeca sempre false a
@@ -11279,11 +11268,6 @@ function renderCalendario(){
     : '';
   const hojeSeg = segundaFeiraDe(todayStr());
   const hojeIdxSemana = Math.round((new Date(todayStr()+'T00:00:00') - new Date(hojeSeg+'T00:00:00'))/86400000); // 0=seg..6=dom
-  const hojeDia = DIAS_SEMANA[hojeIdxSemana];
-  // 30/08/2026 (pedido do Bruno, calendario ilegivel no celular): dia aberto na visao "um dia
-  // por vez" de tela estreita - ver CSS .cal-dia-nav/@media(max-width:599px). So importa nessa
-  // largura; em tela larga a barra fica escondida e todos os dias aparecem juntos como sempre.
-  if(!DIAS_SEMANA.includes(calDiaSelecionado)) calDiaSelecionado = hojeDia;
 
   const calDiaNav = document.getElementById('calDiaNav');
   if(!state.ciclo || !state.ciclo.horasPorSemana){
@@ -11297,45 +11281,29 @@ function renderCalendario(){
     grid.innerHTML = `<div class="empty">Nenhuma matéria com déficit ou peso no ciclo agora — ajuste em "Replanejar" pra gerar a semana.</div>`;
     return;
   }
+  // 30/08/2026 (pedido do Bruno, "essa visão de múltiplos dias vira o padrão no celular, sem
+  // abas"): a navegação por dia inteiro (abas Seg..Dom + "1 dia por vez") foi removida - a
+  // única visão agora é a de colunas de ~150px rolando de lado (ver CSS), tanto travada
+  // (padrão) quanto editando. A barra vira só o botão de travar/destravar - "Editar" quando
+  // travado, "Concluir" + dica quando editando (setas ‹/› continuam só no modo edição: com
+  // .cal-block em touch-action:none pra permitir o arrastar-entre-dias, tocar num bloco cheio
+  // pra tentar rolar a fileira não vira rolagem nativa - as setas garantem um jeito de rolar
+  // sem precisar achar um pedacinho vazio pra tocar).
   if(calDiaNav){
-    if(calEditMode){
-      // Modo edição (só celular - ver CSS): todos os dias visíveis, rolando de lado, pra dar
-      // pra arrastar uma matéria de um dia pro outro.
-      // 30/08/2026 (pedido do Bruno, "não estou conseguindo passar pros dias do lado"): quando
-      // o dia está cheio de blocos (comum, 5/5), quase não sobra espaço vazio pra tocar e
-      // arrastar a FILEIRA (tocar num bloco é capturado pelo arrastar-o-bloco, não pela
-      // rolagem - touch-action:none em .cal-block, necessário pro drag entre dias, também
-      // bloqueia o navegador de assumir esse toque como rolagem nativa). Setas ‹/› rolam a
-      // fileira por um clique, garantido, sem depender de achar um pedacinho vazio pra tocar.
-      calDiaNav.innerHTML = `
+    calDiaNav.innerHTML = calEditMode ? `
         <button type="button" class="cal-dia-seta" id="calDiaEditPrev" aria-label="Rolar pra esquerda">‹</button>
         <span style="flex:1; font-size:.72rem; color:var(--text-mut); text-align:center;">Arraste as matérias entre os dias</span>
         <button type="button" class="cal-dia-seta" id="calDiaEditNext" aria-label="Rolar pra direita">›</button>
         <button type="button" class="cal-dia-editar ativo" id="calDiaEditarToggle" aria-label="Concluir edição" title="Concluir edição">
           <svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg>
-        </button>`;
-      document.getElementById('calDiaEditPrev').addEventListener('click', ()=> grid.scrollBy({left:-170, behavior:'smooth'}));
-      document.getElementById('calDiaEditNext').addEventListener('click', ()=> grid.scrollBy({left:170, behavior:'smooth'}));
-    } else {
-      const idxSel = DIAS_SEMANA.indexOf(calDiaSelecionado);
-      calDiaNav.innerHTML = `
-        <button type="button" class="cal-dia-seta" id="calDiaPrev" aria-label="Dia anterior">‹</button>
-        <div class="cal-dia-abas">${DIAS_SEMANA.map((d,di)=>
-          `<button type="button" class="cal-dia-aba${d===calDiaSelecionado?' sel':''}${di===hojeIdxSemana?' hoje-marcador':''}" data-dia="${d}">${DIAS_SEMANA_LABEL[d]}</button>`
-        ).join('')}</div>
-        <button type="button" class="cal-dia-seta" id="calDiaNext" aria-label="Próximo dia">›</button>
+        </button>` : `
+        <span style="flex:1; font-size:.72rem; color:var(--text-mut);">Arraste a tela pra ver os outros dias</span>
         <button type="button" class="cal-dia-editar" id="calDiaEditarToggle" aria-label="Editar - arrastar matérias entre dias" title="Editar - arrastar matérias entre dias">
           <svg class=ic-svg aria-hidden=true><use href=#ic-pencil></use></svg>
         </button>`;
-      calDiaNav.querySelectorAll('.cal-dia-aba').forEach(btn=>{
-        btn.addEventListener('click', ()=>{ calDiaSelecionado = btn.dataset.dia; renderCalendario(); });
-      });
-      document.getElementById('calDiaPrev').addEventListener('click', ()=>{
-        calDiaSelecionado = DIAS_SEMANA[Math.max(0, idxSel-1)]; renderCalendario();
-      });
-      document.getElementById('calDiaNext').addEventListener('click', ()=>{
-        calDiaSelecionado = DIAS_SEMANA[Math.min(DIAS_SEMANA.length-1, idxSel+1)]; renderCalendario();
-      });
+    if(calEditMode){
+      document.getElementById('calDiaEditPrev').addEventListener('click', ()=> grid.scrollBy({left:-170, behavior:'smooth'}));
+      document.getElementById('calDiaEditNext').addEventListener('click', ()=> grid.scrollBy({left:170, behavior:'smooth'}));
     }
     document.getElementById('calDiaEditarToggle').addEventListener('click', ()=>{
       calEditMode = !calEditMode;
@@ -11377,7 +11345,7 @@ function renderCalendario(){
             ${b.done?'<svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg>':''}
           </div>`;
         }).join('');
-    return `<div class="cal-day-col${di===hojeIdxSemana?' hoje':''}${d===calDiaSelecionado?' cal-dia-selecionado':''}" data-dia="${d}">
+    return `<div class="cal-day-col${di===hojeIdxSemana?' hoje':''}" data-dia="${d}">
       <div class="cal-day-hd">
         <div class="nm">${DIAS_SEMANA_LABEL[d]}</div>
         <div class="dt">${String(dataDia.getDate()).padStart(2,'0')}/${String(dataDia.getMonth()+1).padStart(2,'0')}</div>
@@ -11387,50 +11355,15 @@ function renderCalendario(){
     </div>`;
   }).join('');
   wireCalendarDrag(grid);
-  wireCalDiaSwipe(grid);
-}
-// 30/08/2026 (pedido do Bruno, "deslizando"): atalho de swipe horizontal por cima das
-// abas/setas (que continuam sendo o caminho garantido) - so entra em telas estreitas de
-// verdade (a media query de .cal-dia-nav ja esconde a navegacao em tela larga; aqui so
-// evitamos calcular a troca de dia se a largura do proprio grid indicar que a visao de 1
-// dia nem esta ativa, pra nao competir com nada em telas largas). Ignora toques que
-// comecam em cima de um .cal-block, pra nao brigar com o arrastar-pra-reordenar que ja
-// existe (wireCalendarDrag, Pointer Events).
-function wireCalDiaSwipe(grid){
-  // Diferente de wireCalendarDrag (que religa a cada render porque os .cal-block sao
-  // recriados do zero por grid.innerHTML), o proprio #calGrid NUNCA e recriado - so o
-  // conteudo dentro dele. Sem essa guarda, cada renderCalendario() empilharia mais um par
-  // de listeners no MESMO elemento, e um swipe so acabaria disparando varias trocas de dia
-  // em cascata. calDiaSelecionado/DIAS_SEMANA sao lidos na hora do toque (nao presos no
-  // fechamento), entao conectar uma unica vez continua sempre correto.
-  if(grid.dataset.swipeWired) return;
-  grid.dataset.swipeWired = '1';
-  let sx = null, sy = null, sobreBloco = false;
-  grid.addEventListener('touchstart', (e)=>{
-    // 30/08/2026 (pedido do Bruno, "gostei da visão de edição, mas não consigo passar pros
-    // dias do lado"): em modo edição os 7 dias ficam visíveis lado a lado com rolagem NATIVA
-    // (overflow-x:auto, ver CSS .cal-grid.cal-editando) - essa troca de dia por swipe é só
-    // pro modo normal (1 dia por vez). Sem esse bail-out, cada tentativa de arrastar o dedo
-    // pra rolar a fileira de dias também disparava renderCalendario() (troca de dia), que
-    // reconstrói o grid do zero e cancela a rolagem em andamento - na prática, parecia que
-    // não dava pra rolar de jeito nenhum.
-    if(calEditMode) return;
-    if(grid.offsetWidth === 0) return;
-    const t = e.touches[0];
-    sx = t.clientX; sy = t.clientY;
-    sobreBloco = !!(e.target.closest && e.target.closest('.cal-block'));
-  }, { passive:true });
-  grid.addEventListener('touchend', (e)=>{
-    if(calEditMode || sx==null || sobreBloco) { sx=null; return; }
-    const t = e.changedTouches[0];
-    const dx = t.clientX-sx, dy = t.clientY-sy;
-    sx = null;
-    if(Math.abs(dx)<50 || Math.abs(dx)<Math.abs(dy)*1.5) return; // precisa ser um gesto horizontal de verdade
-    const idxSel = DIAS_SEMANA.indexOf(calDiaSelecionado);
-    if(dx<0) calDiaSelecionado = DIAS_SEMANA[Math.min(DIAS_SEMANA.length-1, idxSel+1)]; // esquerda -> proximo dia
-    else calDiaSelecionado = DIAS_SEMANA[Math.max(0, idxSel-1)]; // direita -> dia anterior
-    renderCalendario();
-  }, { passive:true });
+  // 30/08/2026 (pedido do Bruno): abre já mostrando o dia de hoje, não sempre a partir de
+  // segunda - só na primeira vez que o grid é montado nesta visita (não força a rolagem de
+  // volta toda vez que renderCalendario() roda de novo, ex. depois de concluir uma sessão -
+  // aí respeita onde o usuário rolou por conta própria).
+  if(!grid.dataset.scrollInicial){
+    grid.dataset.scrollInicial = '1';
+    const colHoje = grid.querySelector('.cal-day-col.hoje');
+    if(colHoje) colHoje.scrollIntoView({inline:'start', block:'nearest'});
+  }
 }
 // Arrastar-e-soltar dos blocos de 30min, via Pointer Events (funciona igual com mouse,
 // caneta e toque). Um toque curto sem arrastar (movimento < THRESH) conta como clique
@@ -11442,6 +11375,62 @@ function wireCalendarDrag(grid){
     grid.querySelectorAll('.cal-day-col.cal-drop-hover').forEach(el=>el.classList.remove('cal-drop-hover'));
     grid.querySelectorAll('.cal-block.cal-drop-before,.cal-block.cal-drop-after').forEach(el=>el.classList.remove('cal-drop-before','cal-drop-after'));
   }
+  // 30/08/2026 (pedido do Bruno, "ao colocar a matéria pro lado, consigo arrastar pelos
+  // dias"): no celular #calGrid rola de lado (ver CSS .cal-grid, @media(max-width:599px)) e
+  // nem todo dia cabe na tela ao mesmo tempo - sem isso, só dava pra soltar um bloco num dia
+  // que já estivesse visível de cara. Enquanto o dedo (ou o mouse) fica perto da borda
+  // esquerda/direita do grid DURANTE um arrasto em andamento, rola sozinho na direção da
+  // borda, num loop de requestAnimationFrame - continua rolando mesmo se o dedo ficar parado
+  // ali (diferente de reagir só a pointermove, que só dispara quando o dedo se MEXE).
+  const BORDA_PX = 44, VELOCIDADE = 9;
+  let autoScrollDir = 0, autoScrollRAF = null;
+  // Recalcula o alvo de solta (dia/posição embaixo do ponteiro) - extraído do pointermove
+  // pra também rodar a cada frame do auto-scroll (abaixo). Sem isso, o destaque de "vai
+  // soltar aqui" ficava parado na última posição de quando o dedo se MEXEU, mesmo com a
+  // fileira de dias continuando a rolar sozinha por baixo dele (dedo parado na borda) - ao
+  // soltar, o bloco iria pro dia errado (o de antes de rolar, não o que estava embaixo do
+  // dedo na hora de soltar de verdade).
+  function atualizarAlvoDrop(el, clientX, clientY){
+    el.style.pointerEvents = 'none';
+    const under = document.elementFromPoint(clientX, clientY);
+    el.style.pointerEvents = '';
+    limparIndicadores();
+    const col = under && under.closest ? under.closest('.cal-day-col') : null;
+    if(col){
+      col.classList.add('cal-drop-hover');
+      const alvo = under.closest('.cal-block');
+      if(alvo && alvo!==el){
+        const r = alvo.getBoundingClientRect();
+        const antes = clientY < r.top+r.height/2;
+        alvo.classList.add(antes?'cal-drop-before':'cal-drop-after');
+        drag.toDia = col.dataset.dia;
+        drag.toIdx = parseInt(alvo.dataset.idx,10) + (antes?0:1);
+      } else {
+        drag.toDia = col.dataset.dia;
+        drag.toIdx = col.querySelectorAll('.cal-block').length;
+      }
+    } else {
+      drag.toDia = null; drag.toIdx = null;
+    }
+  }
+  function autoScrollTick(){
+    if(autoScrollDir!==0 && drag){
+      grid.scrollLeft += autoScrollDir*VELOCIDADE;
+      atualizarAlvoDrop(drag.el, drag.lastX, drag.lastY);
+      autoScrollRAF = requestAnimationFrame(autoScrollTick);
+    } else {
+      autoScrollRAF = null;
+    }
+  }
+  function atualizarAutoScroll(clientX){
+    const r = grid.getBoundingClientRect();
+    autoScrollDir = clientX < r.left+BORDA_PX ? -1 : clientX > r.right-BORDA_PX ? 1 : 0;
+    if(autoScrollDir!==0 && !autoScrollRAF) autoScrollRAF = requestAnimationFrame(autoScrollTick);
+  }
+  function pararAutoScroll(){
+    autoScrollDir = 0;
+    if(autoScrollRAF){ cancelAnimationFrame(autoScrollRAF); autoScrollRAF = null; }
+  }
   grid.querySelectorAll('.cal-block').forEach(el=>{
     el.addEventListener('pointerdown', (e)=>{
       if(e.button!=null && e.button!==0) return;
@@ -11450,7 +11439,7 @@ function wireCalendarDrag(grid){
         el, fromDia: el.dataset.dia, fromIdx: parseInt(el.dataset.idx,10),
         startX: e.clientX, startY: e.clientY, moved:false,
         offX: e.clientX-rect.left, offY: e.clientY-rect.top, width: rect.width,
-        toDia:null, toIdx:null, ghost:null,
+        toDia:null, toIdx:null, ghost:null, lastX: e.clientX, lastY: e.clientY,
       };
       try{ el.setPointerCapture(e.pointerId); }catch(err){}
     });
@@ -11467,29 +11456,11 @@ function wireCalendarDrag(grid){
         drag.ghost = ghost;
       }
       if(!drag.moved) return;
+      drag.lastX = e.clientX; drag.lastY = e.clientY;
+      atualizarAutoScroll(e.clientX);
       drag.ghost.style.left = (e.clientX-drag.offX)+'px';
       drag.ghost.style.top = (e.clientY-drag.offY)+'px';
-      el.style.pointerEvents = 'none';
-      const under = document.elementFromPoint(e.clientX, e.clientY);
-      el.style.pointerEvents = '';
-      limparIndicadores();
-      const col = under && under.closest ? under.closest('.cal-day-col') : null;
-      if(col){
-        col.classList.add('cal-drop-hover');
-        const alvo = under.closest('.cal-block');
-        if(alvo && alvo!==el){
-          const r = alvo.getBoundingClientRect();
-          const antes = e.clientY < r.top+r.height/2;
-          alvo.classList.add(antes?'cal-drop-before':'cal-drop-after');
-          drag.toDia = col.dataset.dia;
-          drag.toIdx = parseInt(alvo.dataset.idx,10) + (antes?0:1);
-        } else {
-          drag.toDia = col.dataset.dia;
-          drag.toIdx = col.querySelectorAll('.cal-block').length;
-        }
-      } else {
-        drag.toDia = null; drag.toIdx = null;
-      }
+      atualizarAlvoDrop(el, e.clientX, e.clientY);
     });
     function soltar(e){
       if(!drag || drag.el!==el) return;
@@ -11498,6 +11469,7 @@ function wireCalendarDrag(grid){
       if(drag.ghost) drag.ghost.remove();
       el.classList.remove('cal-dragging');
       limparIndicadores();
+      pararAutoScroll();
       drag = null;
       if(wasDrag){
         if(toDia!=null) moveCalendarBlock(fromDia, fromIdx, toDia, toIdx);
@@ -11512,6 +11484,7 @@ function wireCalendarDrag(grid){
       if(drag.ghost) drag.ghost.remove();
       el.classList.remove('cal-dragging');
       limparIndicadores();
+      pararAutoScroll();
       drag = null;
     });
   });
