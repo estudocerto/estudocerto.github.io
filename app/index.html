@@ -2599,6 +2599,19 @@
   </div>
 </div>
 
+<!-- 30/08/2026 (pedido do Bruno, "ciclo bonus"): pergunta exibida quando o ciclo fecha antes do
+     fim da semana - ver abrirCicloBonusModal/gerarCicloBonus no script. -->
+<div class="quiz-overlay" id="cicloBonusOverlay">
+  <div class="quiz-modal" style="height:auto; max-height:70vh;">
+    <div class="quiz-header">
+      <button class="quiz-close" id="cicloBonusClose"><svg class=ic-svg aria-hidden=true><use href=#ic-close></use></svg></button>
+      <div class="quiz-progress">Ciclo completo!</div>
+      <div class="quiz-title"></div>
+    </div>
+    <div class="quiz-body" id="cicloBonusBody"></div>
+  </div>
+</div>
+
 <!-- ago/2026 (pedido do Bruno): pergunta exibida quando horasPorSemana muda em "Replanejar" -
      ver abrirDivisaoSemanaModal no script. -->
 <div class="quiz-overlay" id="divisaoSemanaOverlay">
@@ -4782,7 +4795,22 @@ function checkCicloCompletion(){
     c.cicloStartedAt = maxFim+1;
     c.pesoSnapshot = {}; // rodada nova: congela pesos de novo a partir do pendente atual
     save();
-    toast(' Ciclo completo! Um novo ciclo foi iniciado.');
+    // 30/08/2026 (pedido do Bruno, "ciclo bonus"): se a rodada fechou ANTES do fim da semana
+    // civil (ainda sobram dias) e o Calendário da Semana está atualizado pra semana atual,
+    // pergunta se ele quer um ciclo bônus pros dias que sobram (abrirCicloBonusModal) em vez
+    // de só avisar por toast - é exatamente esse "sobrou tempo, e agora?" que motivou o
+    // recurso. diasAlvo.length<7 evita perguntar bobagem quando a rodada fecha bem numa
+    // segunda (a semana inteira já está por vir); !calendarioDesatualizado() evita gerar bônus
+    // em cima de uma referência de semana desatualizada (a virada normal de segunda cuida
+    // disso). Não precisa de nenhuma flag "já perguntei": cicloStartedAt já avançou acima, então
+    // as sessões que fecharam esta rodada saem do cálculo da rodada nova e allDone volta a
+    // ficar false na próxima chamada - o modal não repete sozinho pro mesmo fechamento.
+    const diasAlvo = diasRestantesSemana();
+    if(diasAlvo.length>0 && diasAlvo.length<7 && !calendarioDesatualizado()){
+      abrirCicloBonusModal(diasAlvo);
+    } else {
+      toast(' Ciclo completo! Um novo ciclo foi iniciado.');
+    }
   }
 }
 // Próxima aula não concluída de uma matéria, na mesma ordem em que aparecem na apostila (a
@@ -4827,6 +4855,16 @@ function segundaFeiraDe(dataStr){
   const diff = dow===0 ? -6 : 1-dow;
   d.setDate(d.getDate()+diff);
   return dataLocalDe(d.getTime());
+}
+// 30/08/2026 (pedido do Bruno: "ciclo bonus" pros dias que sobram quando ele termina o ciclo
+// antes do fim da semana - ver gerarCicloBonus) - dias de DIAS_SEMANA de HOJE ate domingo,
+// incluindo hoje. Mesma conversao de getDay() (0=domingo..6=sabado) que segundaFeiraDe usa,
+// só virada pro indice seg=0..dom=6 que DIAS_SEMANA usa.
+function diasRestantesSemana(){
+  const d = new Date(todayStr()+'T00:00:00');
+  const dow = d.getDay(); // 0=domingo..6=sabado
+  const idxHoje = dow===0 ? 6 : dow-1; // seg=0..dom=6
+  return DIAS_SEMANA.slice(idxHoje);
 }
 // Sobe esse numero sempre que a logica de geracao da semana (decomporMateriaEmItens,
 // distribuirInteiros, etc) mudar de um jeito que invalida semanas ja geradas - forca uma
@@ -5077,6 +5115,93 @@ function gerarSemanaCalendario(forcar){
 
   DIAS_SEMANA.forEach(d=> c.blocos[d] = blocosPorDia[d]);
   save();
+}
+// 30/08/2026 (pedido do Bruno, "ciclo bonus"): variante de gerarSemanaCalendario() pra quando
+// o ciclo fecha ANTES do fim da semana (ver checkCicloCompletion) - em vez de redistribuir a
+// semana inteira (reescreveria segunda/terça, que já passaram), preenche só os dias que sobram
+// (diasRestantesSemana(), hoje incluído) com uma fração da meta da rodada nova, proporcional a
+// `horasBonus` (escolhido/confirmado pelo usuário no modal, sugestão default = horasPorSemana
+// × dias-que-sobram/7 - ver abrirCicloBonusModal). horasPorSemana em si NUNCA muda aqui - é só
+// um top-up pontual do Calendário, não uma reconfiguração permanente da meta semanal.
+// Mesma lógica de alocação de gerarSemanaCalendario (dia de casa primeiro, depois intercalação
+// por capacidade/peso do dia), só restrita ao subconjunto de dias-alvo - com UMA diferença
+// deliberada: não grava c.diasPadrao novo pra matéria sem casa ainda (passo 2) - o bônus é
+// pontual, não deve virar "dia de casa" permanente por causa da sobra de uma semana só.
+function gerarCicloBonus(horasBonus){
+  const c = ensureCalendarioDefaults();
+  const cc = state.ciclo;
+  const diasAlvo = diasRestantesSemana();
+  if(!cc || !cc.horasPorSemana || cicloPesoTotal()<=0 || !diasAlvo.length || !(horasBonus>0)) return;
+  const fator = horasBonus/cc.horasPorSemana;
+
+  const itensPorMateria = {};
+  Metricas.materiasAtivas().forEach(({si})=>{
+    if(getCicloPeso(si)<=0) return;
+    const minutosMateria = Math.round(cicloMetaSegundos(si)/60*fator);
+    const lista = decomporMateriaEmItens(si, minutosMateria);
+    if(lista.length) itensPorMateria[si] = lista;
+  });
+  if(Object.keys(itensPorMateria).length===0) return; // nada a distribuir, nao mexe nos dias
+
+  const blocosPorDia = {}; diasAlvo.forEach(d=> blocosPorDia[d]=[]);
+
+  // 1) matérias com dia(s) de casa já salvo QUE CAIAM dentro dos dias-alvo: alocação direta
+  const comCasa = [], semCasa = {};
+  Object.keys(itensPorMateria).forEach(siStr=>{
+    const si = Number(siStr);
+    const dias = (c.diasPadrao[si]||[]).filter(d=> diasAlvo.includes(d));
+    if(dias.length) comCasa.push(si); else semCasa[si] = itensPorMateria[siStr];
+  });
+  comCasa.forEach(si=>{
+    const dias = (c.diasPadrao[si]||[]).filter(d=> diasAlvo.includes(d));
+    const duracoes = expandirParaDuracoes(itensPorMateria[si]);
+    duracoes.forEach((dur,i)=>{
+      const dia = dias[i % dias.length];
+      blocosPorDia[dia].push({ si, duracaoMin:dur, done:false, sessionId:null });
+    });
+  });
+
+  // 2) matérias sem dia de casa dentro dos dias-alvo: intercalação + capacidade por peso do
+  //    dia, igual gerarSemanaCalendario, mas SEM gravar diasPadrao (ver comentário acima)
+  if(Object.keys(semCasa).length){
+    const sequenciaItens = intercalarItensPorMateria(semCasa);
+    let diasPeso = {};
+    diasAlvo.forEach(d=>{ if((c.diasPeso[d]||0)>0) diasPeso[d]=c.diasPeso[d]; });
+    if(Object.keys(diasPeso).length===0) diasAlvo.forEach(d=> diasPeso[d]=1); // fallback defensivo
+    const totalMinutosReal = sequenciaItens.reduce((s,it)=>s+it.qtd*it.min,0);
+    const totalBlocos = Math.max(0, Math.ceil(totalMinutosReal/30));
+    const capacidadePorDia = distribuirInteiros(diasPeso, totalBlocos);
+    let cursor = 0;
+    diasAlvo.forEach(d=>{
+      const capMin = (capacidadePorDia[d]||0)*30;
+      let usadosMin = 0;
+      while(cursor<sequenciaItens.length && (usadosMin===0 || usadosMin<capMin) && capMin>0){
+        const item = sequenciaItens[cursor];
+        blocosPorDia[d] = blocosPorDia[d].concat(expandirItens([item]));
+        usadosMin += item.qtd*item.min;
+        cursor++;
+      }
+    });
+    // Sobra de arredondamento: joga tudo que nao coube no ultimo dia-alvo com peso>0.
+    if(cursor<sequenciaItens.length){
+      const diaDestino = diasAlvo.slice().reverse().find(d=>(c.diasPeso[d]||0)>0) || diasAlvo[diasAlvo.length-1];
+      sequenciaItens.slice(cursor).forEach(item=>{
+        blocosPorDia[diaDestino] = blocosPorDia[diaDestino].concat(expandirItens([item]));
+      });
+    }
+  }
+
+  diasAlvo.forEach(d=> c.blocos[d] = blocosPorDia[d]); // so os dias-alvo - dias passados intocados
+  save();
+}
+// 30/08/2026 (pedido do Bruno, "ciclo bonus"): quantas horas sugerir por padrao no modal de
+// gerarCicloBonus - fração da meta semanal proporcional aos dias que sobram, arredondada pra
+// 0,5h (mesmo espírito de arredondar15min: nunca uma fração "feia"). Só o VALOR sugerido -
+// o campo continua editável antes de confirmar (ver abrirCicloBonusModal).
+function cicloBonusSugestaoHoras(diasAlvo){
+  const c = state.ciclo;
+  if(!c || !c.horasPorSemana || !diasAlvo || !diasAlvo.length) return 0;
+  return Math.max(0.5, Math.round(c.horasPorSemana*diasAlvo.length/7*2)/2);
 }
 // ago/2026 (pedido do Bruno): antes, a virada de semana era 100% automatica e silenciosa,
 // disparada no primeiro render da aba Ciclo depois da 2a-feira virar - so que ela so roda
@@ -10748,6 +10873,7 @@ document.getElementById('cicloMostrarFinalizados').addEventListener('change', re
 document.getElementById('btnCicloReplanejar').addEventListener('click', openReplanCicloModal);
 document.getElementById('replanCicloClose').addEventListener('click', ()=> document.getElementById('replanCicloOverlay').classList.remove('show'));
 document.getElementById('divisaoSemanaClose').addEventListener('click', ()=> document.getElementById('divisaoSemanaOverlay').classList.remove('show'));
+document.getElementById('cicloBonusClose').addEventListener('click', ()=> document.getElementById('cicloBonusOverlay').classList.remove('show'));
 // ago/2026 (pedido do Bruno, bug relacionado: mudar horasPorSemana em "Replanejar" nunca
 // regenerava o Calendário da Semana - a mudança só aparecia na próxima 2a-feira/"Atualizar
 // ciclo". Corrigido junto com este pedido: agora, toda vez que horasPorSemana muda de verdade,
@@ -10773,6 +10899,34 @@ function abrirDivisaoSemanaModal(horasAntigas, horasNovas, onEscolha){
     onEscolha(true);
   });
   document.getElementById('divisaoSemanaOverlay').classList.add('show');
+}
+// 30/08/2026 (pedido do Bruno, "ciclo bonus"): chamada por checkCicloCompletion() quando a
+// rodada fecha antes do fim da semana (diasAlvo = diasRestantesSemana() no momento do
+// fechamento). Pergunta em vez de gerar sozinho - "Agora não" só fecha o modal, sem tocar em
+// nada (o ciclo já fechou/reabriu normalmente antes disso, ver checkCicloCompletion).
+function abrirCicloBonusModal(diasAlvo){
+  const body = document.getElementById('cicloBonusBody');
+  const labels = diasAlvo.map(d=> DIAS_SEMANA_LABEL[d]);
+  const diasTexto = labels.length<=1 ? labels[0] : labels.slice(0,-1).join(', ')+' e '+labels[labels.length-1];
+  const sugestao = cicloBonusSugestaoHoras(diasAlvo);
+  body.innerHTML = `
+    <div class="empty" style="padding:0 0 16px; text-align:left;">
+      Você fechou o ciclo antes do fim da semana — ainda sobra${diasAlvo.length>1?'m':''} <b>${diasAlvo.length} dia${diasAlvo.length>1?'s':''}</b> (${diasTexto}). Quer um ciclo bônus pra aproveitar esse tempo no Calendário da Semana?
+    </div>
+    <div class="form-row"><label>Horas do ciclo bônus (sugestão: fração da meta semanal proporcional aos dias que sobram)</label><input type="number" id="cicloBonusHoras" min="0.5" step="0.5" value="${sugestao}"></div>
+    <button class="btn block" id="cicloBonusConfirmar" style="margin:10px 0;">Gerar ciclo bônus</button>
+    <button class="btn block ghost" id="cicloBonusCancelar">Agora não</button>`;
+  document.getElementById('cicloBonusConfirmar').addEventListener('click', ()=>{
+    const horas = Math.max(0.5, parseFloat(document.getElementById('cicloBonusHoras').value)||sugestao);
+    document.getElementById('cicloBonusOverlay').classList.remove('show');
+    gerarCicloBonus(horas);
+    renderPlanejamento();
+    toast(' Ciclo bônus adicionado — aproveite os dias que sobraram!');
+  });
+  document.getElementById('cicloBonusCancelar').addEventListener('click', ()=>{
+    document.getElementById('cicloBonusOverlay').classList.remove('show');
+  });
+  document.getElementById('cicloBonusOverlay').classList.add('show');
 }
 function openReplanCicloModal(){
   const c = ensureCicloDefaults();
