@@ -1779,9 +1779,19 @@
   .ciclo-seq-move button{width:26px; height:22px; border-radius:6px; border:1px solid var(--border); background:var(--bg); font-size:.7rem; color:var(--text);}
   /* ---- Calendário da semana (Ciclo) ---- */
   /* Grid de 7 colunas ocupando a largura toda (sem scroll horizontal) - materias com nome
-     longo quebram linha e a caixa cresce em altura pra caber o nome inteiro, em vez de cortar. */
+     longo quebram linha e a caixa cresce em altura pra caber o nome inteiro, em vez de cortar.
+     30/08/2026 (bug reportado pelo Bruno, print do celular: "Administração de Recursos
+     Humanos" virando uma coluna de UMA LETRA POR LINHA): em ~360-400px de tela, 7 colunas
+     davam ~45px cada - estreito demais pra qualquer nome de matéria quebrar em palavras
+     inteiras, então .cal-block-nm (overflow-wrap:anywhere) quebrava letra a letra, e o bloco
+     "cresce em altura pra caber o nome inteiro" (comentário acima) virava uma coluna gigante
+     dominando a tela inteira. .cal-day-col agora é seu próprio container de tamanho
+     (container-type:inline-size) - a fonte do nome encolhe continuamente com a largura real da
+     coluna (mesmo princípio do gráfico "Estudo por dia"), e como piso final, o nome trunca em 3
+     linhas com "…" em vez de continuar crescendo (o nome completo já aparece no title do bloco,
+     ver renderCalendario - toque longo/hover). */
   .cal-grid{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px;}
-  .cal-day-col{min-height:100px; background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:8px 4px; transition:background .12s ease, border-color .12s ease; min-width:0;}
+  .cal-day-col{min-height:100px; background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:8px 4px; transition:background .12s ease, border-color .12s ease; min-width:0; container-type:inline-size;}
   .cal-day-col.hoje{border-color:var(--green); box-shadow:inset 0 0 0 1px var(--green);}
   .cal-day-col.cal-drop-hover{background:color-mix(in srgb, var(--green) 10%, var(--bg));}
   .cal-day-hd{text-align:center; margin-bottom:8px;}
@@ -1798,7 +1808,22 @@
     display:flex; flex-direction:column; align-items:flex-start; gap:4px;
     transition:opacity .12s ease, border-top-width .1s ease, border-bottom-width .1s ease;
   }
-  .cal-block .cal-block-nm{white-space:normal; word-break:break-word; overflow-wrap:anywhere; line-height:1.25;}
+  .cal-block .cal-block-nm{
+    white-space:normal; overflow-wrap:break-word; line-height:1.25;
+    font-size:clamp(.6rem, 15cqw, .76rem); /* satura em .76rem (tamanho original) em colunas largas - inofensivo la */
+  }
+  /* Só entra em telas de celular (coluna real ~40-90px) - em tablet/desktop a coluna já tem
+     espaço de sobra, então o nome continua "crescendo pra caber inteiro" como sempre foi (ver
+     comentário de .cal-grid acima). Sem isso, truncar a 3 linhas valeria também pra colunas
+     largas que nunca precisaram disso. */
+  @container (max-width:110px){
+    .cal-block .cal-block-nm{
+      display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; text-overflow:ellipsis;
+      width:100%; min-width:0; /* .cal-block e' flex/align-items:flex-start - sem isso, -webkit-box
+        vira "shrink-to-fit" pela palavra mais longa em vez de respeitar a largura da coluna, e o
+        nome vaza pra fora do cartao (confirmado medindo getBoundingClientRect no harness) */
+    }
+  }
   .cal-block .cal-block-dur{font-size:.66rem; font-weight:600; color:var(--text-mut); opacity:.85;}
   .cal-block svg{width:13px; height:13px; flex-shrink:0; color:var(--mat-cor);}
   .cal-block.done{opacity:.55; cursor:default;}
