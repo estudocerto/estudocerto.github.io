@@ -11299,14 +11299,23 @@ function renderCalendario(){
   }
   if(calDiaNav){
     if(calEditMode){
-      // Modo edição (só celular - ver CSS): todos os dias visíveis (rolando de lado) pra dar
-      // pra arrastar uma matéria de um dia pro outro. Abas/setas não fazem sentido aqui (não
-      // tem "um dia atual" enquanto todos estão à mostra) - vira só um aviso + "Concluir".
+      // Modo edição (só celular - ver CSS): todos os dias visíveis, rolando de lado, pra dar
+      // pra arrastar uma matéria de um dia pro outro.
+      // 30/08/2026 (pedido do Bruno, "não estou conseguindo passar pros dias do lado"): quando
+      // o dia está cheio de blocos (comum, 5/5), quase não sobra espaço vazio pra tocar e
+      // arrastar a FILEIRA (tocar num bloco é capturado pelo arrastar-o-bloco, não pela
+      // rolagem - touch-action:none em .cal-block, necessário pro drag entre dias, também
+      // bloqueia o navegador de assumir esse toque como rolagem nativa). Setas ‹/› rolam a
+      // fileira por um clique, garantido, sem depender de achar um pedacinho vazio pra tocar.
       calDiaNav.innerHTML = `
-        <span style="flex:1; font-size:.72rem; color:var(--text-mut);">Arraste as matérias entre os dias</span>
+        <button type="button" class="cal-dia-seta" id="calDiaEditPrev" aria-label="Rolar pra esquerda">‹</button>
+        <span style="flex:1; font-size:.72rem; color:var(--text-mut); text-align:center;">Arraste as matérias entre os dias</span>
+        <button type="button" class="cal-dia-seta" id="calDiaEditNext" aria-label="Rolar pra direita">›</button>
         <button type="button" class="cal-dia-editar ativo" id="calDiaEditarToggle" aria-label="Concluir edição" title="Concluir edição">
           <svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg>
         </button>`;
+      document.getElementById('calDiaEditPrev').addEventListener('click', ()=> grid.scrollBy({left:-170, behavior:'smooth'}));
+      document.getElementById('calDiaEditNext').addEventListener('click', ()=> grid.scrollBy({left:170, behavior:'smooth'}));
     } else {
       const idxSel = DIAS_SEMANA.indexOf(calDiaSelecionado);
       calDiaNav.innerHTML = `
@@ -11398,13 +11407,21 @@ function wireCalDiaSwipe(grid){
   grid.dataset.swipeWired = '1';
   let sx = null, sy = null, sobreBloco = false;
   grid.addEventListener('touchstart', (e)=>{
+    // 30/08/2026 (pedido do Bruno, "gostei da visão de edição, mas não consigo passar pros
+    // dias do lado"): em modo edição os 7 dias ficam visíveis lado a lado com rolagem NATIVA
+    // (overflow-x:auto, ver CSS .cal-grid.cal-editando) - essa troca de dia por swipe é só
+    // pro modo normal (1 dia por vez). Sem esse bail-out, cada tentativa de arrastar o dedo
+    // pra rolar a fileira de dias também disparava renderCalendario() (troca de dia), que
+    // reconstrói o grid do zero e cancela a rolagem em andamento - na prática, parecia que
+    // não dava pra rolar de jeito nenhum.
+    if(calEditMode) return;
     if(grid.offsetWidth === 0) return;
     const t = e.touches[0];
     sx = t.clientX; sy = t.clientY;
     sobreBloco = !!(e.target.closest && e.target.closest('.cal-block'));
   }, { passive:true });
   grid.addEventListener('touchend', (e)=>{
-    if(sx==null || sobreBloco) { sx=null; return; }
+    if(calEditMode || sx==null || sobreBloco) { sx=null; return; }
     const t = e.changedTouches[0];
     const dx = t.clientX-sx, dy = t.clientY-sy;
     sx = null;
