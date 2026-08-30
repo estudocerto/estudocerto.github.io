@@ -211,6 +211,16 @@
     background:var(--green);   /* fio de oxido: a regua do cabecalho impresso */
   }
   header.app > *{position:relative; z-index:1;}
+  /* Linha do cabecalho: hamburguer + bloco de texto lado a lado, num flex real (nao
+     mais hamburguer com position:absolute + padding-left magico nos filhos pra abrir
+     espaco pra ele). align-items:center deixa o navegador centralizar o botao contra
+     a altura de VERDADE do bloco de texto, recalculada sozinha sempre que ele cresce
+     (nome da aba, resumo, e as 3 metricas quebrando pra 2 linhas em tela estreita) -
+     antes o botao ficava com top:50% da altura do cabecalho INTEIRO, que se
+     descolava do centro visual toda vez que esse bloco mudava de altura (queixa do
+     Bruno: hamburguer "flutuando" sem relacao com o titulo). */
+  .hdr-row{display:flex; align-items:center; gap:14px;}
+  .hdr-text{flex:1 1 auto; min-width:0;}
   /* O titulo nao e display: e o nome no alto da folha. Peso 600, corpo contido. */
   header.app h1{
     margin:0; font-size:1.0625rem; font-weight:600; letter-spacing:-.005em;
@@ -1114,14 +1124,12 @@
      o botao desaparecia — sobrava so o badge vermelho flutuando. Agora sao TINTA.
      Sem fundo e sem canto de 12px: o menu e um glifo impresso, nao um chip. */
   .hamburger{
-    /* Centralizado na ALTURA TOTAL do cabecalho (top:50% + translateY), nao fixo a
-       14px do topo: o cabecalho cresce (titulo + nome da aba + resumo + 3 stats),
-       entao um "top" fixo deixava os 3 tracos hoje mais pertos do topo do que do
-       centro do bloco de texto - assimetria vertical. header.app e' o ancestral
-       posicionado (sticky conta como positioning context), entao 50% aqui e' 50%
-       da altura real do cabecalho, safe-area incluida (ja faz parte do padding-top
-       dele). */
-    position:absolute; top:50%; transform:translateY(-50%); left:16px; z-index:2;
+    /* Item flex dentro de .hdr-row (nao mais position:absolute + top:50% chutado):
+       o navegador centraliza sozinho contra a altura real do bloco de texto ao lado,
+       mesmo quando ele cresce (nome da aba, resumo, 3 stats quebrando linha em tela
+       estreita) - sem precisar recalcular nada na mao. */
+    position:relative; /* contexto de posicionamento pro .tab-badge (position:absolute) */
+    flex:0 0 auto; z-index:2;
     width:34px; height:34px; border-radius:var(--radius-sm); border:none; cursor:pointer;
     background:transparent; display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:4px; padding:0;
@@ -1141,7 +1149,6 @@
   }
   .hamburger.in-drawer span{background:var(--text);}
   .hamburger.in-drawer:hover{background:color-mix(in srgb, var(--text) 14%, transparent);}
-  header.app h1, header.app .hdr-tab-name, header.app .sub, header.app .top-stats{padding-left:52px;}
 
   .drawer-backdrop{
     position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.42);
@@ -1857,18 +1864,27 @@
   .settings-app-info{text-align:center; padding:6px 0 2px; font-size:.72rem; color:var(--text-mut);}
 
   /* Grafico de barras (Estudo por dia, widget grafico). Ago/2026 (pedido do Bruno): as
-     colunas agora dividem 100% da largura do card (flex:1, sem largura fixa em px) em vez
-     de empurrar a barra de rolagem horizontal - com 30/60 dias, todas as colunas cabem na
-     mesma tela, só mais finas (ver .weekbar-wrap.dense pro ajuste extra de gap/fonte nesse
-     caso). Ver buildEstudoSemanalHtml pra escala do teto (4h fixo, não mais relativo ao
-     maior dia da janela). */
-  .weekbar-wrap{display:flex; align-items:flex-end; gap:6px; height:140px; padding-top:16px; overflow:hidden;}
-  .weekbar-col{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:5px;}
-  .weekbar-val{font-size:.62rem; color:var(--text); font-weight:800; white-space:nowrap;}
+     colunas dividem 100% da largura do card (flex:1) até um piso mínimo de largura por
+     coluna (min-width abaixo) — com poucos dias cabem soltas; com 30/60 numa tela estreita,
+     em vez de espremer até virar fiapo ilegível, o card passa a rolar horizontalmente
+     (overflow-x:auto) a partir desse piso. Ver .weekbar-wrap.dense pro ajuste extra de
+     gap/fonte nesse caso. Ver buildEstudoSemanalHtml pra escala do teto (4h fixo, não mais
+     relativo ao maior dia da janela).
+     30/08/2026 (pedido do Bruno, "gráfico confuso"): o valor de cada coluna (".weekbar-val")
+     empilhava direto em cima da barra, então ficava numa altura DIFERENTE em cada coluna
+     (acompanhando o tamanho da própria barra) — a fileira de números virava um zigue-zague
+     em vez de uma linha reta, difícil de ler de relance. Reestruturado em 3 fileiras fixas
+     (valor / trilho da barra / rótulo do dia) via .weekbar-track: agora o valor e o rótulo
+     do dia sempre alinham na mesma altura entre colunas, e só a barra varia dentro do
+     trilho — a barra cresce a partir do fundo do trilho, não do fundo do card. */
+  .weekbar-wrap{display:flex; align-items:stretch; gap:6px; height:140px; padding-top:4px; overflow-x:auto; overflow-y:hidden;}
+  .weekbar-col{flex:1 1 0; min-width:40px; display:flex; flex-direction:column; align-items:center; height:100%; gap:4px;}
+  .weekbar-val{flex:0 0 auto; font-size:.62rem; color:var(--text); font-weight:800; white-space:nowrap;}
+  .weekbar-track{flex:1 1 auto; min-height:0; width:100%; display:flex; align-items:flex-end; justify-content:center;}
   .weekbar-fill{width:100%; max-width:24px; border-radius:6px 6px 0 0; background:var(--green); min-height:3px;}
-  .weekbar-lbl{font-size:.62rem; color:var(--text-mut); font-weight:700;}
+  .weekbar-lbl{flex:0 0 auto; font-size:.62rem; color:var(--text-mut); font-weight:700;}
   .weekbar-wrap.dense{gap:2px;}
-  .weekbar-wrap.dense .weekbar-col{gap:3px;}
+  .weekbar-wrap.dense .weekbar-col{min-width:14px; gap:3px;}
   .weekbar-wrap.dense .weekbar-fill{max-width:10px; border-radius:3px 3px 0 0;}
   .weekbar-wrap.dense .weekbar-lbl{font-size:.56rem;}
 
@@ -1962,17 +1978,21 @@
 
 <header class="app">
   <span class="mirror-glow" aria-hidden="true"></span>
-  <button type="button" class="hamburger" id="btnMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="sideDrawer">
-    <span></span><span></span><span></span>
-    <i class="tab-badge" id="menuBadge" hidden></i>
-  </button>
-  <h1 id="appTitle"><img src="icon-192.png" alt="" width="18" height="18" class="app-title-icon"> Estudo Certo</h1>
-  <div class="hdr-tab-name" id="hdrTabName">Painel</div>
-  <div class="sub" id="appSub">Acompanhamento de apostilas e questões</div>
-  <div class="top-stats">
-    <div class="top-stat"><b id="hdrPct">0%</b><span>Páginas lidas</span></div>
-    <div class="top-stat"><b id="hdrQPct">0%</b><span>Questões respondidas</span></div>
-    <div class="top-stat"><b id="hdrStreak">0</b><span>Dias seguidos</span></div>
+  <div class="hdr-row">
+    <button type="button" class="hamburger" id="btnMenu" aria-label="Abrir menu" aria-expanded="false" aria-controls="sideDrawer">
+      <span></span><span></span><span></span>
+      <i class="tab-badge" id="menuBadge" hidden></i>
+    </button>
+    <div class="hdr-text">
+      <h1 id="appTitle"><img src="icon-192.png" alt="" width="18" height="18" class="app-title-icon"> Estudo Certo</h1>
+      <div class="hdr-tab-name" id="hdrTabName">Painel</div>
+      <div class="sub" id="appSub">Acompanhamento de apostilas e questões</div>
+      <div class="top-stats">
+        <div class="top-stat"><b id="hdrPct">0%</b><span>Páginas lidas</span></div>
+        <div class="top-stat"><b id="hdrQCount">0</b><span>Questões respondidas</span></div>
+        <div class="top-stat"><b id="hdrStreak">0</b><span>Dias seguidos</span></div>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -6372,7 +6392,7 @@ function buildEstudoSemanalHtml(modo, numDias){
     const lbl = numDias>14 ? String(dt.getDate()) : diaNomes[dt.getDay()];
     return `<div class="weekbar-col" title="${fmtDate(dias[i])}: ${valTxt}">
       ${mostrarValorInline ? `<div class="weekbar-val">${valTxt}</div>` : ''}
-      <div class="weekbar-fill" style="height:${h}%;"></div>
+      <div class="weekbar-track"><div class="weekbar-fill" style="height:${h}%;"></div></div>
       <div class="weekbar-lbl">${lbl}</div>
     </div>`;
   }).join('');
@@ -6978,13 +6998,13 @@ function renderHeaderStats(){
   const totalPages = totalTheoryAll(), readPages = pagesReadAll();
   const pagesPct = totalPages? Math.round(readPages/totalPages*100):0;
   document.getElementById('hdrPct').textContent = pagesPct+'%';
-  // Mesma base de cálculo do widget "Questões respondidas (total)" (case 'questoes_feitas'
-  // em computeWidgetValue) — questões distintas já tentadas ao menos uma vez, sobre o total
-  // do banco nas matérias ativas. Não duplica lógica nova, só reaproveita computeMastery/
-  // totalQuestoesAll no cabeçalho fixo.
-  const totalQ = totalQuestoesAll();
-  const qPct = totalQ? Math.round(computeMastery().seen/totalQ*100) : 0;
-  document.getElementById('hdrQPct').textContent = qPct+'%';
+  // Mesma base do widget "Questões respondidas (total)" (case 'questoes_feitas' em
+  // computeWidgetValue): computeMastery().seen é a soma bruta de questões já respondidas
+  // (registro manual por sessão, ver Metricas.dominioQuestoes). 30/08/2026 (pedido do
+  // Bruno): o cabeçalho mostra essa quantidade direto, não mais um percentual sobre o
+  // total do banco — com poucas aulas declaradas o percentual batia 100% cedo demais e
+  // escondia o número real de questões feitas.
+  document.getElementById('hdrQCount').textContent = computeMastery().seen;
   document.getElementById('hdrStreak').textContent = currentStreak();
 }
 
