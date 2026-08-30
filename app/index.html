@@ -2163,6 +2163,14 @@
       </div>
       <div class="ciclo-actions">
         <button class="btn ghost sm" id="btnCicloReplanejar"><svg class=ic-svg aria-hidden=true><use href=#ic-pencil></use></svg> Replanejar</button>
+        <!-- 30/08/2026 (pedido do Bruno): gatilho MANUAL do ciclo bônus (ver
+             abrirCicloBonusModal/renderCalendario) - o automático só dispara no momento exato
+             em que uma rodada fecha cedo (checkCicloCompletion); se isso já aconteceu antes
+             (ex.: fechou sábado, só percebeu domingo) não tem como reabrir aquele momento.
+             Este botão oferece a MESMA conta a qualquer momento em que ainda sobrem dias na
+             semana - escondido/mostrado em renderCalendario() com a mesma condição do
+             gatilho automático. -->
+        <button class="btn ghost sm" id="btnCicloBonusManual" hidden><svg class=ic-svg aria-hidden=true><use href=#ic-plus></use></svg> Ciclo bônus</button>
       </div>
       <div class="ciclo-stats-row">
         <div class="card ciclo-stat kpi"><h2>Ciclos completos</h2><div class="ciclo-stat-big" id="cicloStatCompletos">0</div></div>
@@ -10949,6 +10957,7 @@ document.getElementById('btnCicloEditSeq').addEventListener('click', ()=>{
 });
 document.getElementById('cicloMostrarFinalizados').addEventListener('change', renderCicloSequencia);
 document.getElementById('btnCicloReplanejar').addEventListener('click', openReplanCicloModal);
+document.getElementById('btnCicloBonusManual').addEventListener('click', ()=> abrirCicloBonusModal(diasRestantesSemana()));
 document.getElementById('replanCicloClose').addEventListener('click', ()=> document.getElementById('replanCicloOverlay').classList.remove('show'));
 document.getElementById('divisaoSemanaClose').addEventListener('click', ()=> document.getElementById('divisaoSemanaOverlay').classList.remove('show'));
 document.getElementById('cicloBonusClose').addEventListener('click', ()=> document.getElementById('cicloBonusOverlay').classList.remove('show'));
@@ -11125,6 +11134,11 @@ function renderCalendario(){
   const c = ensureCalendarioDefaults();
   const desatualizado = calendarioDesatualizado();
   document.getElementById('btnAtualizarCicloSemana').hidden = !desatualizado;
+  // 30/08/2026 (pedido do Bruno): mesma condição do gatilho automático em checkCicloCompletion
+  // (dias restantes >0 e <7, calendário não desatualizado) - só que reavaliada a qualquer
+  // render desta aba, não só no instante em que uma rodada fecha.
+  const diasBonus = diasRestantesSemana();
+  document.getElementById('btnCicloBonusManual').hidden = !(diasBonus.length>0 && diasBonus.length<7 && !desatualizado);
   document.getElementById('calSemanaLabel').textContent = c.semanaRef
     ? formatarIntervaloSemana(c.semanaRef) + (desatualizado ? ' — semana passada, desatualizada. Aperte "Atualizar ciclo" abaixo.' : '')
     : '';
