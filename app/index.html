@@ -1008,7 +1008,8 @@
   .stage-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); flex-wrap:wrap;}
   .stage-row:last-child{border-bottom:none;}
   .stage-row-nm{font-size:.85rem; font-weight:700; flex:1; min-width:120px;}
-  .stage-row-inputs{display:flex; gap:10px;}
+  /* 30/08/2026: ate 7 campos (exercicios + 6 revisoes) agora, precisa poder quebrar linha em tela estreita */
+  .stage-row-inputs{display:flex; gap:10px; flex-wrap:wrap;}
   .stage-field{display:flex; flex-direction:column; align-items:center; gap:2px;}
   .stage-field input{width:44px; padding:6px; border-radius:8px; border:1px solid var(--border); text-align:center; font-weight:700; font-size:.85rem;}
   .stage-field label{font-size:.62rem; color:var(--text-mut);}
@@ -2311,7 +2312,7 @@
         <h2>Como funciona a revisão espaçada</h2>
         <div style="font-size:.82rem; color:var(--text-mut); line-height:1.55;">
           Ao concluir a leitura da teoria de uma apostila, o primeiro passo <b>não</b> é revisar: é <b>fazer os exercícios daquela apostila, em até 48 horas</b>. Essa etapa se fecha sozinha quando você responde todas as questões da aula — e só aí começa a contar a 1ª revisão.<br><br>
-          Depois vêm <b>3 revisões espaçadas</b>, de intervalo crescente (padrão <b>7</b> → <b>15</b> → <b>30 dias</b>), editáveis por matéria em Ajustes. Concluída a 3ª, a aula é considerada dominada e sai da fila. A avaliação <b>Difícil / Médio / Fácil</b> é apenas um registro do quanto você lembrou — ela <b>não altera</b> o intervalo nem a etapa. Serve para você reencontrar depois, em "Escolher o que revisar", tudo que achou difícil e reforçar manualmente quando quiser.
+          Depois vêm as <b>revisões espaçadas</b> (padrão <b>7</b> → <b>15</b> → <b>30 dias</b>, até 6 no total, editáveis por matéria em Ajustes) — cada intervalo conta a partir da <b>data de conclusão da apostila</b>, não uma a partir da outra. Concluída a última, a aula é considerada dominada e sai da fila. A avaliação <b>Difícil / Médio / Fácil</b> é apenas um registro do quanto você lembrou — ela <b>não altera</b> o intervalo nem a etapa. Serve para você reencontrar depois, em "Escolher o que revisar", tudo que achou difícil e reforçar manualmente quando quiser.
         </div>
       </div>
     </details>
@@ -2362,7 +2363,7 @@
     </div>
     <div class="card">
       <h2>Intervalos de revisão por matéria <span id="tipIntervalosRevisao"></span></h2>
-      <div class="settings-sub" style="margin-top:0;">As 3 revisões espaçadas de cada matéria. Ao alterar, as revisões já agendadas dessa matéria são recalculadas na hora. A etapa de exercícios (48h após a teoria) tem prazo fixo e não entra aqui.</div>
+      <div class="settings-sub" style="margin-top:0;">As revisões espaçadas de cada matéria (até 6), contadas a partir da data de conclusão da apostila — não uma a partir da outra. Ao alterar, as revisões já agendadas dessa matéria são recalculadas na hora. Deixe um campo em branco pra remover essa revisão e todas as seguintes. A etapa de exercícios (48h após a teoria) tem prazo fixo e não entra aqui.</div>
       <div id="stagesEditor"></div>
     </div>
     <div class="card" style="display:none;" id="installCard">
@@ -2999,9 +3000,11 @@ function getQState(qid){
   if(!r.correctByDevice) r.correctByDevice = {};
   return r;
 }
+// 30/08/2026 (pedido do Bruno): ate 6 revisoes por materia (antes, sempre exatamente 3) -
+// custom.length agora aceita de 1 a 6, nao so exatamente 3.
 function getSubjectStages(si){
   const custom = state.subjectStages && state.subjectStages[si];
-  return (custom && custom.length===3) ? custom : STAGES;
+  return (Array.isArray(custom) && custom.length>0 && custom.length<=6) ? custom : STAGES;
 }
 function setSubjectStages(si, arr){
   if(!state.subjectStages) state.subjectStages = {};
@@ -3012,12 +3015,23 @@ function setSubjectStages(si, arr){
 }
 
 /* ===================== MOTOR DE REVISÃO ESPAÇADA =====================
-   Modelo: cada aula percorre 3 estagios de intervalo crescente (padrao 1 -> 7 -> 30 dias,
-   customizavel por materia). O agendamento eh DETERMINISTICO: nextReview eh sempre
-   recalculado como lastReview + intervalo do estagio atual, nunca guardado como um valor
-   "solto". Isso garante duas coisas:
-     1. mudar os intervalos de uma materia reagenda na hora tudo que estava pendente nela;
-     2. o estado nunca fica inconsistente com a configuracao atual.
+   Modelo: cada aula percorre ate 6 estagios de intervalo crescente (padrao 7 -> 15 -> 30
+   dias, customizavel por materia - ver STAGES/getSubjectStages). O agendamento eh
+   DETERMINISTICO: nextReview eh sempre recalculado a partir de uma ancora + intervalo do
+   estagio atual, nunca guardado como um valor "solto". Isso garante que mudar os intervalos
+   de uma materia reagenda na hora tudo que estava pendente nela, e o estado nunca fica
+   inconsistente com a configuracao atual.
+
+   30/08/2026 (pedido do Bruno, "os dias contam a partir da conclusao da apostila, nao um a
+   partir do outro"): a ANCORA mudou de rec.lastReview (a data em que a etapa ANTERIOR foi
+   concluida - um valor que mudava a cada etapa, entao os intervalos se acumulavam/atrasavam
+   em cascata) para rec.studiedDate (FIXO: a data em que a teoria da apostila foi concluida,
+   nunca reescrito depois disso - ver getAula). Agora a 1a revisao, a 2a, ... a 6a contam
+   todas a partir do MESMO dia zero (conclusao da apostila), como os intervalos configurados
+   em Ajustes sugerem (7/15/30 = "7, 15 e 30 dias depois de terminar a apostila", nao "mais
+   7 depois da revisao anterior"). Migracao unica em migrateState() recalcula nextReview de
+   toda aula ja em andamento pra essa regra nova, decisao confirmada com o Bruno (recalcular
+   tudo na hora, nao so dali pra frente).
 
    A avaliacao (Dificil / Medio / Facil) eh apenas um REGISTRO: ela marca como voce se sentiu
    naquela aula e NAO mexe em nada automaticamente - nem no intervalo, nem no estagio. Foi uma
@@ -3037,17 +3051,19 @@ function intervaloEfetivo(rec, si){
   const stages = getSubjectStages(si);
   return Math.max(1, stages[Math.min(rec.stage-1, stages.length-1)]);
 }
-// Quantas etapas uma aula percorre no total: 1 (exercícios) + as 3 revisões configuradas.
+// Quantas etapas uma aula percorre no total: 1 (exercícios) + as revisões configuradas
+// (1 a 6, ver getSubjectStages).
 function totalEtapas(si){ return getSubjectStages(si).length + 1; }
-// Recalcula rec.nextReview a partir da ancora (lastReview) + intervalo do estagio atual.
-// Se a aula ja passou de todos os estagios, ela vira "dominada" e sai da fila.
+// Recalcula rec.nextReview a partir da ancora (studiedDate, fixo - ver comentario do motor
+// de revisao acima) + intervalo do estagio atual. Se a aula ja passou de todos os estagios,
+// ela vira "dominada" e sai da fila.
 function scheduleNextReview(rec, si){
   if(rec.stage >= totalEtapas(si)){
     rec.mastered = true;
     rec.nextReview = null;
     return;
   }
-  const ancora = rec.lastReview || rec.studiedDate || todayStr();
+  const ancora = rec.studiedDate || rec.lastReview || todayStr();
   rec.nextReview = addDays(ancora, intervaloEfetivo(rec, si));
 }
 /* ---- ETAPA 0: EXERCÍCIOS ----------------------------------------------------
@@ -3231,21 +3247,26 @@ function revisoesPendentes(){
   });
   return out;
 }
-// Plano COMPLETO de revisoes de uma aula: as 3 etapas de uma vez, e nao so a proxima.
-// A etapa atual eh a que esta de fato agendada (data firme); as seguintes sao PREVISOES,
-// projetadas encadeando os intervalos configurados a partir dessa data. A previsao muda
-// se voce avaliar uma revisao como Dificil/Facil (o que mexe no fator de facilidade) ou
-// se mudar os intervalos da materia - por isso ela aparece rotulada como "prevista", e
-// nao como compromisso. Serve pra enxergar o plano inteiro da aula de antemao.
+// Plano COMPLETO de revisoes de uma aula: todas as etapas de uma vez (ate 6 revisoes + a
+// etapa de exercicios), e nao so a proxima. A etapa atual eh a que esta de fato agendada
+// (data firme, rec.nextReview); as seguintes sao PREVISOES.
+// 30/08/2026 (mesma mudanca de ancora do motor de revisao, ver comentario acima de
+// scheduleNextReview): antes as previsoes eram encadeadas (cada uma = a anterior + intervalo,
+// via um "cursor" que ia andando) - isso nao batia mais com a regra nova (cada revisao conta
+// da conclusao da apostila, nao uma da outra). Agora cada previsao eh calculada direto da
+// MESMA ancora (rec.studiedDate) + o intervalo absoluto daquela etapa - sem cursor nenhum,
+// mais simples e sempre consistente com o que scheduleNextReview vai calcular quando aquela
+// etapa virar a atual. A previsao ainda pode mudar se voce mudar os intervalos da materia -
+// por isso aparece rotulada como "prevista", nao como compromisso.
 function planoRevisoes(si, ai){
   const rec = state.aulas[key(si,ai)];
   if(!rec || !rec.studied) return [];
   const stages = getSubjectStages(si);
   const hist = rec.reviewHistory || [];
   const out = [];
-  let cursor = rec.nextReview || rec.lastReview || rec.studiedDate || todayStr();
+  const ancora = rec.studiedDate || rec.lastReview || todayStr();
   // A etapa 0 (exercícios) entra no plano igual às outras, mas com rótulo próprio e
-  // prazo fixo de 48h. As 3 seguintes são as revisões espaçadas configuráveis.
+  // prazo fixo de 48h. As seguintes são as revisões espaçadas configuráveis (1 a 6).
   const total = stages.length + 1;
   for(let st=0; st<total; st++){
     const exerc = (st === ETAPA_EXERCICIOS);
@@ -3256,10 +3277,8 @@ function planoRevisoes(si, ai){
       out.push({ etapa:st, rotulo, exerc, dias, data:(h? h.d : null), status:'feita', qualidade:(h? h.q : null) });
     } else if(st === rec.stage){
       out.push({ etapa:st, rotulo, exerc, dias, data: rec.nextReview, status:'proxima', qualidade:null });
-      cursor = rec.nextReview;
     } else {
-      cursor = addDays(cursor, dias);
-      out.push({ etapa:st, rotulo, exerc, dias, data: cursor, status:'prevista', qualidade:null });
+      out.push({ etapa:st, rotulo, exerc, dias, data: addDays(ancora, dias), status:'prevista', qualidade:null });
     }
   }
   return out;
@@ -3479,6 +3498,37 @@ function migrateState(s){
     const v = s.subjectStages[si];
     if(Array.isArray(v) && v.length===3 && v[0]===1 && v[1]===7 && v[2]===30) delete s.subjectStages[si];
   });
+  // 30/08/2026 (pedido do Bruno, "os dias contam a partir da conclusao da apostila, nao um a
+  // partir do outro" - ver comentario grande no motor de revisao espacada, acima de
+  // scheduleNextReview): a ancora do agendamento mudou de rec.lastReview (a etapa anterior,
+  // cascateava) pra rec.studiedDate (fixo). Migracao unica: recalcula nextReview de toda aula
+  // ja estudada e ainda nao dominada com a regra nova, na hora - decisao confirmada com o
+  // Bruno (recalcular tudo agora, nao so dali pra frente). NAO usa scheduleNextReview()/
+  // getSubjectStages() direto (elas leem o `state` global, que durante um merge de
+  // sincronizacao pode nao ser o mesmo objeto que `s` aqui) - a conta abaixo eh autocontida,
+  // só sobre `s`, igual as outras migracoes desta funcao.
+  if(!s.revisaoAncoraMigrada){
+    Object.keys(s.aulas||{}).forEach(k=>{
+      const r = s.aulas[k];
+      if(!r || !r.studied || r.mastered) return;
+      const si = Number(k.split('|')[0]);
+      const ancora = r.studiedDate || r.lastReview || null;
+      if(!ancora) return; // sem nenhuma data-base ainda (nao deveria acontecer se r.studied) - deixa como esta
+      if(r.stage === ETAPA_EXERCICIOS){
+        r.nextReview = addDays(ancora, EXERC_PRAZO_DIAS);
+      } else {
+        const stages = (s.subjectStages && Array.isArray(s.subjectStages[si]) && s.subjectStages[si].length>0 && s.subjectStages[si].length<=6) ? s.subjectStages[si] : STAGES;
+        if(r.stage >= stages.length+1){
+          r.mastered = true;
+          r.nextReview = null;
+        } else {
+          const dias = Math.max(1, stages[Math.min(r.stage-1, stages.length-1)]);
+          r.nextReview = addDays(ancora, dias);
+        }
+      }
+    });
+    s.revisaoAncoraMigrada = true;
+  }
   if(!Array.isArray(s.reportes)) s.reportes = []; // questões reportadas como erradas (ver reportarQuestao)
   if(!s.provas) s.provas = {}; // resultados dos simulados de provas anteriores (ver aba Provas)
   if(s.calendario===undefined) s.calendario = null; // calendário semanal do Ciclo (ver ensureCalendarioDefaults) - so existe depois da primeira geracao
@@ -5573,7 +5623,7 @@ const MANUAL_CATALOG = [
   { titulo:'Tempo', texto:'Cronômetro de sessão de estudo, com modo livre ou Pomodoro (foco + intervalo, configurável em Ajustes → Sessão de estudo). Registra quanto tempo você estudou, pra alimentar as estimativas de ritmo e ajudar a bater sua meta semanal.' },
   { titulo:'Ciclo', texto:'Monte um ciclo de estudos: defina quantas horas por semana pretende estudar e o app sugere um peso pra cada matéria (proporcional ao que falta ler), distribuindo as horas numa sequência que se repete. Ajuste pesos e quais matérias entram em "Replanejar" a qualquer momento — o ciclo se recalcula na hora. O card "Calendário da semana" mostra essa meta em blocos de 30min pelos 7 dias — arraste um bloco pra outro dia/posição pra reorganizar, ou toque nele pra iniciar o cronômetro direto (ele vira concluído sozinho ao encerrar a sessão). Cada semana nova é montada a partir do que ainda falta de verdade: o que não foi estudado puxa mais blocos na semana seguinte, sem nunca passar do total do ciclo. Em Replanejar dá pra configurar o peso de cada dia (0 pra não estudar naquele dia).' },
   { titulo:'Refazer', texto:'Junta automaticamente toda questão que você já errou e ainda não acertou depois — sai da lista sozinha assim que você acerta. É o jeito mais rápido de focar exatamente no que você ainda não domina, sem precisar procurar manualmente.' },
-  { titulo:'Revisão', texto:'Agenda de revisão espaçada: depois de estudar a teoria de uma aula e fazer os exercícios dela (em até 48h), o app agenda 3 revisões espaçadas (padrão 7 → 15 → 30 dias, editável por matéria). O calendário mostra o que está atrasado, hoje e programado; "Escolher o que revisar" deixa rever qualquer aula já concluída fora do cronograma, inclusive filtrando pelas que você marcou como difíceis.' },
+  { titulo:'Revisão', texto:'Agenda de revisão espaçada: depois de estudar a teoria de uma aula e fazer os exercícios dela (em até 48h), o app agenda as revisões espaçadas (padrão 7 → 15 → 30 dias, até 6 no total, editável por matéria) — cada intervalo conta a partir da data de conclusão da apostila, não uma a partir da outra. O calendário mostra o que está atrasado, hoje e programado; "Escolher o que revisar" deixa rever qualquer aula já concluída fora do cronograma, inclusive filtrando pelas que você marcou como difíceis.' },
   { titulo:'Provas', texto:'Cadernos oficiais de concursos anteriores (CESGRANRIO), com gabarito oficial. Faça a prova inteira cronometrada como simulado, ou pratique só as questões de uma matéria específica dentro daquele caderno.' },
   { titulo:'Metas', texto:'Defina quantas páginas de teoria estudar por dia e acompanhe sua sequência de dias seguidos (streak). Também dá pra definir uma data alvo pra terminar toda a teoria restante — o app calcula o ritmo necessário em páginas/dia e questões/dia pra chegar lá no prazo, comparando com seu ritmo atual.' },
   { titulo:'Ajustes', texto:'Tema claro/escuro, cor de destaque, tempos de Pomodoro, esta central de Ajuda, backup/restauração e zerar progresso, status do arquivo local, sincronização entre aparelhos (login/conta), instalação do app neste dispositivo e verificação de atualizações. Favoritos mora na aba Questões.' },
@@ -7346,19 +7396,33 @@ function renderMateriaDetalhe(si, filter){
             <input type="text" value="48h" readonly tabindex="-1" aria-label="Prazo dos exercícios: 48 horas, fixo">
             <label>exercícios</label>
           </div>
-          <div class="stage-field"><input type="number" min="1" max="365" value="${stages[0]}" data-mstage="0"><label>1ª rev.</label></div>
-          <div class="stage-field"><input type="number" min="1" max="365" value="${stages[1]}" data-mstage="1"><label>2ª rev.</label></div>
-          <div class="stage-field"><input type="number" min="1" max="365" value="${stages[2]}" data-mstage="2"><label>3ª rev.</label></div>
+          ${Array.from({length:6}, (_,i)=>{
+            const v = stages[i];
+            return `<div class="stage-field"><input type="number" min="1" max="365" value="${v!=null?v:''}" placeholder="—" data-mstage="${i}"><label>${i+1}ª rev.</label></div>`;
+          }).join('')}
         </div>
       </div>
     </div>`;
+  // 30/08/2026 (pedido do Bruno, ate 6 revisoes): mesmo comportamento de renderRevisaoStagesEditor
+  // (Ajustes) - ate 6 campos, sem "buracos" (esvaziar um campo do meio/fim encurta a lista dali
+  // pra frente, a 1ª nunca fica vazia).
   document.querySelectorAll('#matDetInfo input[data-mstage]').forEach(inp=>{
     inp.addEventListener('change', ()=>{
-      const cur = getSubjectStages(si).slice();
       const idx = parseInt(inp.dataset.mstage,10);
-      cur[idx] = Math.max(1, parseInt(inp.value,10)||cur[idx]);
+      let cur = getSubjectStages(si).slice();
+      const val = parseInt(inp.value,10);
+      if(val>0){
+        while(cur.length<idx) cur.push(cur[cur.length-1]||STAGES[STAGES.length-1]);
+        cur[idx] = val;
+      } else if(idx===0){
+        inp.value = cur[0];
+        return;
+      } else {
+        cur = cur.slice(0, idx);
+      }
       const n = setSubjectStages(si, cur);
       toast(n>0 ? n+(n===1?' revisão reagendada':' revisões reagendadas') : 'Intervalos atualizados');
+      renderMateriaDetalhe(si, filter); // reflete campos que apareceram/sumiram
       renderMaterias(document.getElementById('searchBox').value);
       updateRevisaoBadge();
     });
@@ -7692,10 +7756,13 @@ function renderRevisao(){
   const semana = futuras.filter(i=>i.rec.nextReview<=in7);
   const depois = futuras.filter(i=>i.rec.nextReview>in7);
 
-  const card = document.createElement('div');
-  card.className = 'card';
+  // 30/08/2026 (pedido do Bruno): recolhível igual a "Ver mais de revisão" (mesmo padrão
+  // <details class="card recolhivel"> usado em todo o app - ver CSS de details.recolhivel).
+  // Continua fechada por padrão ao carregar a aba, como todas as outras seções recolhíveis.
+  const card = document.createElement('details');
+  card.className = 'card recolhivel';
   card.style.marginBottom = '16px';
-  card.innerHTML = '<h2>Agenda de revisões</h2>';
+  card.innerHTML = '<summary><h2>Agenda de revisões</h2><span class="marcador" aria-hidden="true"></span></summary>';
   wrap.appendChild(card);
 
   function group(title, arr, cls){
@@ -7949,11 +8016,7 @@ let revHistAbertos = new Set();
 // exercicios (concluida = fechou e virou a 1a revisao), 1..N = qual revisao espacada foi feita.
 function rotuloEtapaHistorico(entry){
   if(entry.q==='exercicios') return 'Exercícios concluídos';
-  const n = entry.stage;
-  if(n===1) return '1ª revisão';
-  if(n===2) return '2ª revisão';
-  if(n===3) return '3ª revisão';
-  return 'Revisão (etapa '+n+')';
+  return entry.stage+'ª revisão'; // 30/08/2026: generico (ate 6 revisoes agora, nao so 3)
 }
 function historicoRevisoesHtml(rec){
   const hist = (rec && rec.reviewHistory) || [];
@@ -8100,6 +8163,14 @@ function renderRevisaoStagesEditor(){
     const pend = revisoesPendentes().filter(i=>i.si===si).length;
     const row = document.createElement('div');
     row.className = 'stage-row';
+    // 30/08/2026 (pedido do Bruno, ate 6 revisoes): antes eram sempre 3 campos fixos. Agora
+    // sao ate 6 - os campos alem do total configurado ficam vazios (placeholder "—"),
+    // preenchendo o proximo estende a lista, esvaziar um campo do MEIO/FIM encurta a lista a
+    // partir dali (ver o listener abaixo - sem "buracos", sempre sequencial 1ª..Nª).
+    const camposRevisao = Array.from({length:6}, (_,i)=>{
+      const v = stages[i];
+      return `<div class="stage-field"><input type="number" min="1" max="365" value="${v!=null?v:''}" placeholder="—" data-stage="${i}"><label>${i+1}ª rev.</label></div>`;
+    }).join('');
     row.innerHTML = `<div class="stage-row-nm">${escapeHtml(s.name)}
         <small class="stage-row-sub">${pend>0 ? pend+(pend===1?' revisão agendada':' revisões agendadas') : 'sem revisões pendentes'}</small>
       </div>
@@ -8108,22 +8179,29 @@ function renderRevisaoStagesEditor(){
           <input type="text" value="48h" readonly tabindex="-1" aria-label="Prazo dos exercícios: 48 horas, fixo">
           <label>exercícios</label>
         </div>
-        <div class="stage-field"><input type="number" min="1" max="365" value="${stages[0]}" data-stage="0"><label>1ª rev.</label></div>
-        <div class="stage-field"><input type="number" min="1" max="365" value="${stages[1]}" data-stage="1"><label>2ª rev.</label></div>
-        <div class="stage-field"><input type="number" min="1" max="365" value="${stages[2]}" data-stage="2"><label>3ª rev.</label></div>
+        ${camposRevisao}
       </div>`;
     // Escopo em [data-stage]: sem isso a caixa de exercicios (readonly, sem
     // data-stage) entraria no laco e gravaria NaN no intervalo da materia.
     row.querySelectorAll('input[data-stage]').forEach(inp=>{
       inp.addEventListener('change', ()=>{
-        const cur = getSubjectStages(si).slice();
         const idx = parseInt(inp.dataset.stage,10);
-        cur[idx] = Math.max(1, parseInt(inp.value,10)||cur[idx]);
-        inp.value = cur[idx];
+        let cur = getSubjectStages(si).slice();
+        const val = parseInt(inp.value,10);
+        if(val>0){
+          while(cur.length<idx) cur.push(cur[cur.length-1]||STAGES[STAGES.length-1]); // preenche buraco, se houver
+          cur[idx] = val;
+        } else if(idx===0){
+          inp.value = cur[0]; // a 1ª revisão nunca fica vazia - volta pro valor anterior
+          return;
+        } else {
+          cur = cur.slice(0, idx); // campo esvaziado: essa e as revisões seguintes somem
+        }
         const n = setSubjectStages(si, cur);
         toast(n>0
           ? n+(n===1?' revisão de ':' revisões de ')+s.name+(n===1?' foi reagendada':' foram reagendadas')
           : 'Intervalos de '+s.name+' atualizados');
+        renderRevisaoStagesEditor(); // reflete campos que apareceram/sumiram
         renderRevisao();      // datas na agenda e no calendario mudam na hora
         updateRevisaoBadge();
         renderPainel();
@@ -10314,7 +10392,7 @@ function openEndSessionModal(){
   let html = `<div class="form-row"><label>Tempo registrado</label><div style="font-size:1.6rem; font-weight:800; color:var(--green-dark);">${fmtHMS(activeSessionElapsedMs()/1000)}</div></div>`;
   if(a.tipo==='revisao'){
     const rec = state.aulas[key(a.si,a.ai)];
-    const etapa = etapaRotulo(rec ? Math.min(rec.stage||0, 3) : 1, true);
+    const etapa = etapaRotulo(rec ? Math.min(rec.stage||0, getSubjectStages(a.si).length) : 1, true);
     html += `
       <div class="form-row">
         <label>Revisão de</label>
