@@ -9001,6 +9001,11 @@ async function syncApplyCloudRow(row){
   localStorage.setItem(STORE_KEY, JSON.stringify(state)); // grava local sem re-agendar push (evita loop)
   syncSetLastSyncedAt(row.updated_at);
   _syncLocalDirty = false; // este aparelho agora reflete exatamente o que a nuvem tinha
+  // 30/08/2026: limpa tambem a marca em localStorage (nao so a flag em memoria acima) - sem
+  // isso, uma marca de edicao ANTIGA (de antes deste pull limpo) ficava esquecida e podia
+  // fazer este aparelho se achar "mais recente" numa comparacao futura sem ter editado nada de
+  // verdade desde entao (ver mergeStates/localMaisRecente).
+  try{ localStorage.removeItem(SYNC_LOCAL_EDIT_KEY); }catch(e){}
   renderAll();
 }
 // Resumo simples e legível do que cada lado tem — usado só no toast pós-mesclagem
@@ -9079,6 +9084,33 @@ function mergeStates(localStateRaw, cloudStateRaw, cloudUpdatedAtIso){
   const merged = migrateState(mergeWithDefaults(JSON.parse(JSON.stringify(base))));
 
   merged.deviceId = localState.deviceId; // NUNCA vem do outro lado - identifica ESTE aparelho
+
+  // 30/08/2026 (bug real reportado pelo Bruno - "abri no celular, ele achou que eu nao tinha
+  // ciclo, e isso sobrescreveu o PC"): ciclo/onboarding/metaDataAlvo vinham 100% do `base`
+  // escolhido acima por RECENCIA de edicao - um aparelho com instalacao velha/nunca configurada
+  // (ciclo/onboarding ainda null) podia "vencer" so por ter sido aberto mais recentemente
+  // (qualquer save(), ate um automatico de manutencao, conta como "edicao"), apagando a
+  // configuracao de verdade do outro lado. Mesmo principio ja usado abaixo pra
+  // calendario.diasPadrao: prefere o lado PREENCHIDO sobre o lado vazio. So cai no criterio de
+  // recencia (o `base` ja escolhido) quando os DOIS lados tem conteudo de verdade - ai sim e'
+  // um conflito genuino de configuracao, que continua resolvido do jeito de sempre.
+  if(!merged.ciclo && (localState.ciclo || cloudState.ciclo)){
+    merged.ciclo = localState.ciclo || cloudState.ciclo;
+  }
+  if(!merged.onboarding && (localState.onboarding || cloudState.onboarding)){
+    merged.onboarding = localState.onboarding || cloudState.onboarding;
+  }
+  if(!merged.metaDataAlvo && (localState.metaDataAlvo || cloudState.metaDataAlvo)){
+    merged.metaDataAlvo = localState.metaDataAlvo || cloudState.metaDataAlvo;
+  }
+  // Mesma logica pro calendario INTEIRO (antes so diasPadrao tinha essa protecao, ver bloco mais
+  // abaixo) - semanaRef e' o sinal de "essa semana foi gerada de verdade" (um calendario "vazio"
+  // ainda existe como objeto, so com semanaRef null - ver ensureCalendarioDefaults). Roda ANTES
+  // do bloco de uniao de diasPadrao logo abaixo, que continua protegendo o caso dos dois lados
+  // terem calendario real com diasPadrao diferente.
+  if((!merged.calendario || !merged.calendario.semanaRef) && ((localState.calendario&&localState.calendario.semanaRef) || (cloudState.calendario&&cloudState.calendario.semanaRef))){
+    merged.calendario = (localState.calendario&&localState.calendario.semanaRef) ? localState.calendario : cloudState.calendario;
+  }
 
   merged.sessions = _mergeArraysById(localState.sessions, cloudState.sessions);
   merged.historicoCiclos = _mergeArraysById(localState.historicoCiclos, cloudState.historicoCiclos);
