@@ -6428,18 +6428,24 @@ function ensureTempoRestanteTrio(dash){
 // manualmente toda vez em "Personalizar". Mudar a ordem aqui muda o painel de quem ainda
 // não mexeu em nada; quem já personalizou não é afetado (o "if(!state.dashboard)" só roda
 // uma vez, na primeira vez que o painel existe).
+// 30/08/2026 (pedido do Bruno): painel padrão atualizado pra bater com o layout que ele
+// realmente usa hoje (o dele foi conferido direto na conta, via Supabase) - inclui o gráfico
+// "Estudo por dia" (ordem 4, ausente do padrão antigo) e progresso_materias em largura cheia
+// (era metade). É o layout que aparece pra instalação nova E pra qualquer reset futuro que
+// zere state.dashboard - ver excluirCiclo/reset de estudos.
 function ensureDashboard(){
   if(!state.dashboard){
     state.dashboard = { widgets: [
       { id: uid(), metricId:'tempo_restante', modo:'trio', periodo:null, scope:null, visivel:true, ordem:1, tamanho:'cheio' },
-      { id: uid(), metricId:'taxa_dominio', modo:null, scope:null, visivel:true, ordem:4 },
-      { id: uid(), metricId:'tempo_total', modo:'consolidado', periodo:'total', scope:null, visivel:true, ordem:5 },
-      { id: uid(), metricId:'consistencia', modo:null, scope:null, visivel:true, ordem:6 },
-      { id: uid(), metricId:'distribuicao_tempo', modo:null, scope:null, visivel:true, ordem:7 },
-      { id: uid(), metricId:'paginas_lidas', modo:null, periodo:null, scope:null, visivel:true, ordem:8, tamanho:'metade' },
-      { id: uid(), metricId:'questoes_feitas', modo:null, periodo:null, scope:null, visivel:true, ordem:9, tamanho:'metade' },
-      { id: uid(), metricId:'progresso_materias', modo:null, periodo:null, scope:null, visivel:true, ordem:10, tamanho:'metade' },
-    ]};
+      { id: uid(), metricId:'taxa_dominio', modo:null, scope:null, visivel:true, ordem:2 },
+      { id: uid(), metricId:'tempo_total', modo:'consolidado', periodo:'total', scope:null, visivel:true, ordem:3 },
+      { id: uid(), metricId:'estudo_semanal_grafico', modo:'tempo', periodo:'7', scope:null, visivel:true, ordem:4, tamanho:'terco' },
+      { id: uid(), metricId:'consistencia', modo:null, scope:null, visivel:true, ordem:5 },
+      { id: uid(), metricId:'distribuicao_tempo', modo:null, scope:null, visivel:true, ordem:6 },
+      { id: uid(), metricId:'paginas_lidas', modo:null, periodo:null, scope:null, visivel:true, ordem:7, tamanho:'metade' },
+      { id: uid(), metricId:'questoes_feitas', modo:null, periodo:null, scope:null, visivel:true, ordem:8, tamanho:'metade' },
+      { id: uid(), metricId:'progresso_materias', modo:null, periodo:null, scope:null, visivel:true, ordem:9, tamanho:'cheio' },
+    ], _tempoRestanteTrioV2:true };
     save();
   } else {
     migrateDashboardWidgets(state.dashboard);
