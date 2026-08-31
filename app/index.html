@@ -3845,7 +3845,8 @@ function setPagesRead(si, ai, newVal, opts){
   if(delta!==0){
     state.pageEvents.push({ id: uid(), si, ai, d: todayStr(), delta, at: Date.now(), catchUp: !!opts.catchUp });
   }
-  if(newVal>=theory && !rec.studied){
+  const acabouDeConcluirTeoria = newVal>=theory && !rec.studied;
+  if(acabouDeConcluirTeoria){
     rec.studied = true;
     rec.studiedDate = todayStr();
     rec.stage = 0;
@@ -3857,6 +3858,14 @@ function setPagesRead(si, ai, newVal, opts){
     avisoTeoriaConcluida(si, ai, rec);
   }
   save();
+  // 30/08/2026 (pedido do Bruno): Aula 02 de Administracao da Producao e Compras (si=5,ai=2) e
+  // so "Lista de Questoes"/"Questoes Comentadas" da Parte 3 (mesmo conteudo da Aula 01, Parte 2),
+  // sem teoria propria (theory:0 em pageTotals). Por isso ela entra disponivel pra exercicios
+  // automaticamente junto com a Aula 01, sem exigir marcar na mao a "teoria" dela (que so existe
+  // como 1 pagina por seguranca de divisao por zero em theoryPages()).
+  if(acabouDeConcluirTeoria && si===5 && ai===1){
+    setPagesRead(5, 2, theoryPages(5,2), opts);
+  }
 }
 /* Mensagem ao concluir a teoria de uma apostila. O próximo passo agora não é a 1ª revisão
    e sim FAZER OS EXERCÍCIOS daquela apostila, com prazo de 48h - por isso o texto orienta
