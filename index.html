@@ -90,37 +90,23 @@
   .hero-fact{ display:flex; align-items:center; gap:10px; font-size:.88rem; font-weight:500; color:var(--ink-mut); }
   .hero-fact svg{ flex:none; color:var(--acid-dark); }
 
-  /* ---------- bento do hero: o app de verdade, em miniatura ---------- */
-  .bento{ display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:min-content; gap:12px; }
-  .b-tile{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
-  .b-cal{ grid-column:1/3; }
-  .b-acerto{ grid-row:2/4; display:flex; flex-direction:column; }
-  .b-mat{ grid-column:1/3; }
-  .b-lbl{ font-size:.72rem; font-weight:600; color:var(--ink-mut); margin-bottom:14px; }
-  .b-cal-row{ display:flex; gap:7px; justify-content:space-between; }
-  .b-cal-day{ flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; }
-  .b-cal-day span{ font-size:.66rem; color:var(--ink-mut); font-weight:600; }
-  .b-cal-blk{ width:100%; height:20px; border-radius:6px; background:var(--border); }
-  .b-cal-blk.on{ background:var(--dark); }
-  .b-cal-blk.acid{ background:var(--acid); }
-  .b-acerto .pct{ font-family:'Red Hat Display',sans-serif; font-weight:700; font-size:2.2rem; line-height:1; margin-bottom:6px; }
-  .b-acerto .pct-lbl{ font-size:.78rem; color:var(--ink-mut); margin-bottom:16px; }
-  .b-acerto .rows{ margin-top:auto; display:flex; flex-direction:column; gap:8px; }
-  .b-acerto .row{ display:flex; justify-content:space-between; font-size:.8rem; color:var(--ink-mut); border-top:1px solid var(--border); padding-top:8px; }
-  .b-acerto .row b{ color:var(--ink); font-weight:600; }
-  .b-tile.b-hoje .chip{ display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:.8rem; padding:8px 0; border-top:1px solid var(--border); }
-  .b-tile.b-hoje .chip:first-of-type{ border-top:none; }
-  .b-tile.b-hoje .tag{ font-size:.64rem; font-weight:600; padding:4px 9px; border-radius:var(--radius-pill); background:var(--acid); color:var(--on-acid); white-space:nowrap; }
-  .b-tile.b-acid{ background:var(--acid); color:var(--on-acid); border-color:transparent; display:flex; flex-direction:column; justify-content:space-between; }
-  .b-tile.b-acid .pct{ font-family:'Red Hat Display',sans-serif; font-weight:700; font-size:1.8rem; }
-  .b-tile.b-acid .b-lbl{ color:var(--on-acid); opacity:.7; }
-  .b-mat .bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-  .b-mat .bar-row:last-child{ margin-bottom:0; }
-  .b-mat .bar-row span:first-child{ font-size:.8rem; color:var(--ink-mut); width:96px; flex:none; }
-  .b-mat .bar-track{ flex:1; height:6px; border-radius:var(--radius-pill); background:var(--border); overflow:hidden; }
-  .b-mat .bar-track i{ display:block; height:100%; background:var(--dark); border-radius:var(--radius-pill); }
-  .b-mat .bar-row span:last-child{ font-size:.76rem; color:var(--ink-mut); width:32px; text-align:right; flex:none; }
-  .bento-caption{ margin-top:12px; font-size:.76rem; color:var(--ink-mut); text-align:center; }
+  /* ---------- hero: foto do produto em contexto (estilo Apple), com callouts ----------
+     01/09/2026: troca o bento de mini-cards por UMA foto premium (gerada com referencia
+     precisa dos nossos tokens reais - preto quase puro, verde-acido como UNICO destaque)
+     mostrando o app "no contexto do dia a dia", com poucas legendas apontando features
+     especificas em vez de repetir numeros - mais imagem, menos texto. */
+  .hero-visual{ position:relative; border-radius:var(--radius); overflow:hidden; }
+  .hero-visual img{ width:100%; height:auto; display:block; }
+  .callout{
+    position:absolute; display:flex; align-items:center; gap:8px;
+    background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-pill);
+    padding:7px 14px 7px 10px; font-size:.8rem; font-weight:600; color:var(--ink);
+    box-shadow:0 8px 24px rgba(0,0,0,.18); white-space:nowrap;
+  }
+  .callout .dot{ width:8px; height:8px; border-radius:50%; background:var(--acid-dark); flex:none; }
+  .callout.c1{ top:26%; left:8%; }
+  .callout.c2{ bottom:14%; right:6%; }
+  @media (max-width:520px){ .callout{ font-size:.7rem; padding:5px 10px 5px 8px; } .callout.c1{ top:8%; left:4%; } .callout.c2{ bottom:6%; right:4%; } }
 
   /* ---------- section shared ---------- */
   section{ padding:88px 0; }
@@ -221,60 +207,24 @@
         <div class="hero-fact"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Seus dados sincronizam entre aparelhos</div>
       </div>
     </div>
-    <div>
-      <div class="bento">
-        <div class="b-tile b-cal">
-          <div class="b-lbl">Calendário da semana</div>
-          <div class="b-cal-row">
-            <div class="b-cal-day"><div class="b-cal-blk on"></div><div class="b-cal-blk"></div><span>SEG</span></div>
-            <div class="b-cal-day"><div class="b-cal-blk on"></div><div class="b-cal-blk on"></div><span>TER</span></div>
-            <div class="b-cal-day"><div class="b-cal-blk"></div><div class="b-cal-blk"></div><span>QUA</span></div>
-            <div class="b-cal-day"><div class="b-cal-blk acid"></div><div class="b-cal-blk"></div><span>QUI</span></div>
-            <div class="b-cal-day"><div class="b-cal-blk on"></div><div class="b-cal-blk"></div><span>SEX</span></div>
-          </div>
-        </div>
-        <div class="b-tile b-acerto">
-          <div class="b-lbl">Taxa de acerto</div>
-          <div class="pct">74%</div>
-          <div class="pct-lbl">questões praticadas</div>
-          <div class="rows">
-            <div class="row"><span>Feitas</span><b>216</b></div>
-            <div class="row"><span>Certas</span><b>160</b></div>
-            <div class="row"><span>Erradas</span><b>56</b></div>
-          </div>
-        </div>
-        <div class="b-tile b-hoje">
-          <div class="b-lbl">Pra hoje</div>
-          <div class="chip"><span>Concordância — Português</span><span class="tag">revisar</span></div>
-          <div class="chip"><span>Estoques — Adm. Materiais</span><span class="tag">exercícios</span></div>
-        </div>
-        <div class="b-tile b-acid">
-          <div class="b-lbl">Sequência</div>
-          <div class="pct">18 dias</div>
-        </div>
-        <div class="b-tile b-mat">
-          <div class="b-lbl">Matérias</div>
-          <div class="bar-row"><span>Direito Adm.</span><div class="bar-track"><i style="width:81%"></i></div><span>81%</span></div>
-          <div class="bar-row"><span>Português</span><div class="bar-track"><i style="width:52%"></i></div><span>52%</span></div>
-          <div class="bar-row"><span>Raciocínio Lóg.</span><div class="bar-track"><i style="width:23%"></i></div><span>23%</span></div>
-        </div>
-      </div>
-      <div class="bento-caption">Ilustração do painel — os números mudam de acordo com o seu progresso real.</div>
+    <div class="hero-visual">
+      <img src="img/hero-laptop.png" alt="Estudo Certo aberto num laptop, mostrando o calendário da semana com uma matéria em destaque">
+      <span class="callout c1"><span class="dot"></span>Arraste entre os dias</span>
+      <span class="callout c2"><span class="dot"></span>Foco automático da semana</span>
     </div>
   </div>
 </section>
 
 <section class="about">
   <div class="wrap about-grid">
-    <div class="about-card">
-      <h3>Por que existe</h3>
-      <p>Organizar teoria, questões, apostilas e revisões de um edital inteiro em planilha solta não escala. O Estudo Certo junta tudo isso num lugar só, com o cronograma se ajustando sozinho conforme você estuda de verdade.</p>
+    <div class="hero-visual" style="max-width:340px; margin:0 auto;">
+      <img src="img/phone-stat.png" alt="Estudo Certo no celular, mostrando a taxa de acerto">
     </div>
     <div class="about-text">
       <div class="kicker">Sobre a plataforma</div>
       <h2>Feito pra quem estuda todos os dias, não só pra quem monta plano de estudos.</h2>
       <p>Em vez de te fazer calcular datas de revisão na mão, o Estudo Certo <strong>monta seu ciclo de estudos</strong> com base no que ainda falta ler, <strong>reequilibra a semana sozinho</strong> quando alguma matéria fica pra trás e agenda as <strong>revisões espaçadas</strong> depois de cada aula.</p>
-      <p>Teoria, exercícios e revisão contam pro mesmo progresso, não importa por onde você entrou — "Matérias", "Planejamento" ou "Provas".</p>
+      <p>Continua de onde parou em qualquer aparelho — o progresso é um só, não importa por onde você entrou.</p>
     </div>
   </div>
 </section>
