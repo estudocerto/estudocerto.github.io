@@ -3161,24 +3161,26 @@ function questoesAcertosManual(si, ai){
     .filter(s=> s.tipo==='questoes' && s.materiaIdx===si && s.apostilaIdx===ai)
     .reduce((sum,s)=> sum + (s.questoesManual ? (s.questoesManual.correct||0) : 0), 0);
 }
-/* ---- FLAGS DE QUESTÕES ERRADAS (26/08/2026, pedido do Bruno) ----
+/* ---- FLAGS DE QUESTÕES ERRADAS (26/08/2026, pedido do Bruno; mecânica revista 01/09/2026) ----
    Sem banco de questões, não dá pra saber qual questão específica ele errou - mas ele conhece
-   a numeração da própria apostila (1, 2, 3...). rec.questoesErradas guarda os NÚMEROS marcados,
-   por aula (não por sessão - persiste, pra ele só ajustar o que mudou de uma sessão pra outra).
-   Vive só pra referência dele; não entra em nenhum cálculo de métrica (contagem/acerto já vem
-   dos campos "quantas fez/quantas acertou"). */
+   a numeração da própria apostila (1, 2, 3...). A grade sempre abre DESTOCADA (nenhum número
+   pré-marcado) - antes ficava fixa entre sessões, mas isso quebrava a nova conta automática de
+   "quantas errou" (ver saveFlaggedErradas): se um número continuasse marcado de uma sessão
+   antiga sem ele tocar em nada, seria contado como errado DE NOVO agora, inflando o total.
+   Cada sessão marca só o que errou NESSA rodada; o histórico completo (todo número já marcado
+   alguma vez, em qualquer sessão) fica em rec.questoesErradas - união, nunca substituição -
+   pra continuar servindo de referência (ver renderQuestoesErradas / seção Exercícios da aula). */
 function buildFlagsGridHtml(si, ai){
   const total = getAula(si,ai).questoesTotalManual||0;
   if(total<=0){
-    return '<div class="form-row"><small style="color:var(--text-mut);">Declare o total de questões dessa apostila (aba Planejamento, etapa de Exercícios) pra poder marcar quais errou.</small></div>';
+    return '<div class="form-row"><small style="color:var(--text-mut);">Declare o total de questões dessa apostila (etapa de Exercícios) pra poder marcar quais errou.</small></div>';
   }
-  const erradas = new Set(getAula(si,ai).questoesErradas||[]);
   let btns = '';
   for(let n=1;n<=total;n++){
-    btns += `<button type="button" class="flag-num-btn${erradas.has(n)?' flagged':''}" data-num="${n}">${n}</button>`;
+    btns += `<button type="button" class="flag-num-btn" data-num="${n}">${n}</button>`;
   }
   return `<div class="form-row">
-    <label>Quais você errou? (opcional - toque nos números; fica marcado pra próxima vez)</label>
+    <label>Quais você errou nesta rodada? (toque nos números - os acertos são calculados sozinhos a partir daqui)</label>
     <div class="flags-grid">${btns}</div>
   </div>`;
 }
@@ -3187,11 +3189,18 @@ function wireFlagsGrid(container){
     b.addEventListener('click', ()=> b.classList.toggle('flagged'));
   });
 }
+// Retorna os números marcados NESTA sessão (a grade sempre começa vazia - ver buildFlagsGridHtml
+// acima), e também acumula esses números em rec.questoesErradas (união, histórico permanente de
+// referência). O retorno (não o acumulado) é o que vira a conta de "erradas" desta sessão.
 function saveFlaggedErradas(si, ai, container){
   const grid = container.querySelectorAll('.flag-num-btn.flagged');
-  if(container.querySelectorAll('.flag-num-btn').length===0) return; // total nao declarado, nada pra salvar
+  if(container.querySelectorAll('.flag-num-btn').length===0) return []; // total nao declarado, nada pra salvar
+  const nums = Array.from(grid).map(b=> parseInt(b.dataset.num,10));
   const rec = getAula(si,ai);
-  rec.questoesErradas = Array.from(grid).map(b=> parseInt(b.dataset.num,10));
+  const acumulado = new Set(rec.questoesErradas||[]);
+  nums.forEach(n=> acumulado.add(n));
+  rec.questoesErradas = Array.from(acumulado).sort((a,b)=>a-b);
+  return nums;
 }
 // 26/08/2026: local pra REVER (não só marcar) as questões erradas flagadas, por matéria -
 // antes elas só apareciam no momento de marcar, sem lugar pra consultar depois (pedido do
@@ -4154,7 +4163,7 @@ function endActiveSession(extra){
     if(a.questoesIdsCollected.length){
       sessao.questoesIds = a.questoesIdsCollected.slice();
     } else if(extra && extra.questoesCount){
-      sessao.questoesManual = { count: extra.questoesCount, correct: extra.questoesCorrect||0 };
+      sessao.questoesManual = { count: extra.questoesCount, correct: extra.questoesCorrect||0, wrongNums: extra.questoesWrongNums||[] };
     }
   }
   state.sessions.push(sessao); // conta pra todas as metricas gerais de tempo e pro Ciclo (cicloEstudadoSegundos etc.) independente de ter vindo do calendario e de ter batido os 30min ou nao - ver comentario abaixo
@@ -4196,7 +4205,7 @@ function addManualSession(si, ai, tipo, minutos, extra){
     sessao.paginas = [inicio, fim];
     if(fim>inicio) setPagesRead(si, ai, fim, {catchUp: !!extra.catchUp});
   } else {
-    sessao.questoesManual = { count: extra.questoesCount||0, correct: extra.questoesCorrect||0 };
+    sessao.questoesManual = { count: extra.questoesCount||0, correct: extra.questoesCorrect||0, wrongNums: extra.questoesWrongNums||[] };
   }
   state.sessions.push(sessao);
   save();
@@ -6719,24 +6728,21 @@ function buildTendenciaHtml(){
   return row('Ritmo de leitura', tT, 'pág') + row('Ritmo de resolução', tQ, 'questão');
 }
 function buildRankingHtml(){
-  // ago/2026: mesmo ajuste feito no widget "Taxa de Domínio" (ver computeWidgetValue, case
-  // 'taxa_dominio') — percentual e legenda passam a ser contra o TOTAL de questões do banco de
-  // cada matéria, não só as já tentadas. Por isso agora entram no ranking todas as matérias
-  // ativas com questões cadastradas, mesmo com 0 tentadas (aparecem com 0%, o que é esperado).
-  // 19/08/2026: a lista-base agora vem de Metricas.materiasAtivas() (fonte única de "matéria
-  // ativa" - ver seção 10 do documento de regras). O filtro `total>0` ABAIXO é EXTRA, só deste
-  // ranking (não faz sentido ranquear uma matéria sem nenhuma questão cadastrada) - de propósito
-  // não é parte do critério geral de matéria ativa, só uma regra local desta tela.
+  // 01/09/2026 (mesmo bug do widget "Taxa de Domínio", ver computeWidgetValue case
+  // 'taxa_dominio'): comparar dominadas (cumulativo) contra o total declarado (fixo) passava
+  // de 100% a cada revisão repetida da mesma apostila. Ranking agora ordena por TAXA DE
+  // ACERTO (m.pct, certas/feitas - já vem pronta e bounded de Metricas.dominioQuestoes),
+  // igual ao resto da tela de questões manuais. Só entram matérias com pelo menos 1 questão
+  // já registrada (r.seen>0) - sem isso não tem taxa de acerto pra ranquear.
+  // 19/08/2026: a lista-base vem de Metricas.materiasAtivas() (fonte única de "matéria ativa").
   const ranked = Metricas.materiasAtivas().map(({s,si})=> {
     const m = subjectMastery(si);
-    const total = totalQuestoesForSubject(si);
-    const pct = total? Math.round(m.dominated/total*100) : null;
-    return { si, name:s.name, dominated:m.dominated, total, pct };
-  }).filter(r=> r.total>0 && r.pct!=null).sort((a,b)=> b.pct-a.pct);
-  if(ranked.length===0) return '<div class="empty">Cadastre questões nas aulas para ver aqui em quais matérias você está dominando mais e menos.</div>';
+    return { si, name:s.name, dominated:m.dominated, seen:m.seen, pct:m.pct };
+  }).filter(r=> r.seen>0 && r.pct!=null).sort((a,b)=> b.pct-a.pct);
+  if(ranked.length===0) return '<div class="empty">Registre questões nas aulas (etapa de Exercícios) para ver aqui em quais matérias você está acertando mais e menos.</div>';
   return ranked.map((r,i)=>{
     const cls = r.pct>=70? 'good' : (r.pct>=50? 'mid' : 'bad');
-    return `<div class="rank-item"><div class="rn">${i+1}º</div><div class="nm2">${r.name}<small>${r.dominated}/${r.total} questões do banco dominadas</small></div><div class="rank-pct ${cls}">${r.pct}%</div></div>`;
+    return `<div class="rank-item"><div class="rn">${i+1}º</div><div class="nm2">${r.name}<small>${r.dominated}/${r.seen} questões certas</small></div><div class="rank-pct ${cls}">${r.pct}%</div></div>`;
   }).join('');
 }
 function buildProgressoMateriasHtml(){
@@ -6824,13 +6830,17 @@ function computeWidgetValue(metricId, modo, nivel, scope, periodo){
     : nivel==='materia' ? SUBJECTS[si].name : 'todas as matérias';
   switch(metricId){
     case 'taxa_dominio': {
-      // ago/2026: percentual e sub-legenda passaram a ser contra o TOTAL de questoes do banco
-      // (nao so as ja tentadas) — bug reportado pelo Bruno: com 1 questao tentada e acertada,
-      // dominadas/tentadas dava 100%, escondendo as milhares de questoes nunca tentadas.
+      // 01/09/2026 (pedido do Bruno, bug reportado - percentual passando de 100%): a versao
+      // anterior comparava m.dominated (cumulativo - soma TODA sessao de questoes ja
+      // registrada, inclusive revisoes repetidas da mesma apostila) contra um total FIXO
+      // (questoesTotalManual, declarado uma unica vez). Bastava revisar a mesma apostila mais
+      // de uma vez pra o numerador passar o denominador (ex.: 71/31 = 229%). Removida a
+      // comparacao com o total declarado - agora mostra as 4 coisas que realmente cabem aqui:
+      // feitas, certas, erradas (tudo cumulativo, sem teto) e % de acerto (m.pct ja vem pronto
+      // de Metricas.dominioQuestoes, sempre 0-100% porque e certas/feitas, nunca certas/outracoisa).
       const m = nivel==='materia'? subjectMastery(si) : computeMastery();
-      const total = nivel==='materia'? totalQuestoesForSubject(si) : totalQuestoesAll();
-      const pct = total? Math.round(m.dominated/total*100) : null;
-      return { value: pct==null?'–':pct+'%', sub: `${m.dominated}/${total} questões do banco dominadas — ${subLabelEscopo}` };
+      const erradas = Math.max(0, m.seen - m.dominated);
+      return { value: m.pct==null?'–':m.pct+'%', sub: `${m.seen} feitas · ${m.dominated} certas · ${erradas} erradas — ${subLabelEscopo}` };
     }
     case 'taxa_primeira_tentativa': {
       const m = computeFirstTryRate();
@@ -7159,9 +7169,13 @@ function renderPainel(){
           break;
         }
         case 'questoes_feitas': {
-          const mQ = computeMastery(), totalQ = totalQuestoesAll();
-          const pctQ = totalQ? Math.round(mQ.seen/totalQ*100):0;
-          bodyHtml = buildRingHtml(pctQ, mQ.seen+' / '+totalQ, 'questões já respondidas ao menos uma vez', 'var(--green)');
+          // 01/09/2026 (mesmo motivo do case 'taxa_dominio' em computeWidgetValue): o anel
+          // comparava questões feitas (cumulativo) contra o total declarado (fixo) - mesma
+          // conta que passava de 100% a cada revisão repetida. O anel agora preenche com a
+          // taxa de acerto (certas/feitas, sempre 0-100%) e o texto mostra os 3 números crus.
+          const mQ = computeMastery();
+          const erradasQ = Math.max(0, mQ.seen - mQ.dominated);
+          bodyHtml = buildRingHtml(mQ.pct||0, mQ.dominated+' certas / '+mQ.seen+' feitas', erradasQ+' erradas', 'var(--green)');
           break;
         }
         default: {
@@ -7636,7 +7650,31 @@ function renderAulasDaMateria(siAlvo, filter){
         // 26/08/2026: banco de questões extraído foi arquivado (qualidade ruim vs. apostila
         // real, a pedido do Bruno) - agora questões são sempre registradas manualmente, na
         // etapa de Exercícios (aba Revisão) ou numa sessão de questões avulsa.
-        quizHtml = `<div class="quiz-empty-note">Questões registradas manualmente — veja a etapa de Exercícios na aba Planejamento, ou inicie uma sessão de questões acima.</div>`;
+        // 01/09/2026 (pedido do Bruno): seção "Exercícios" fica aqui também, direto no card da
+        // aula na aba Matérias - feitas/certas/erradas/% dessa aula específica, sem comparar
+        // com nenhum total (mesmo motivo do widget do Painel - ver computeWidgetValue case
+        // 'taxa_dominio'). O campo de total declarado (rev-exerc-total-inp, mesma classe já
+        // usada no card de Exercícios da aba Revisão) mora aqui também, pra não precisar trocar
+        // de aba só pra declarar quantas questões a apostila tem.
+        const feitasEx = questoesFeitasManual(si,ai);
+        const certasEx = questoesAcertosManual(si,ai);
+        const erradasEx = Math.max(0, feitasEx-certasEx);
+        const pctEx = feitasEx? Math.round(certasEx/feitasEx*100) : null;
+        const totalDeclEx = rec.questoesTotalManual||0;
+        const erradosNums = (rec.questoesErradas||[]).slice().sort((x,y)=>x-y);
+        quizHtml = `<div class="quiz-row">
+          <div class="rev-kpis">
+            <div class="rev-kpi"><b>${feitasEx}</b><span>Feitas</span></div>
+            <div class="rev-kpi is-due"><b>${certasEx}</b><span>Certas</span></div>
+            <div class="rev-kpi is-late"><b>${erradasEx}</b><span>Erradas</span></div>
+            <div class="rev-kpi"><b>${pctEx==null?'–':pctEx+'%'}</b><span>% acerto</span></div>
+          </div>
+          <div class="form-row" style="margin-top:10px;">
+            <label style="font-size:.72rem;">Total de questões da apostila</label>
+            <input type="number" min="0" class="rev-exerc-total-inp" data-si="${si}" data-ai="${ai}" value="${totalDeclEx||''}" placeholder="0" style="width:80px;">
+          </div>
+          ${erradosNums.length? `<div class="form-row" style="margin-top:4px;"><label style="font-size:.72rem;">Já errou (histórico completo):</label><div class="flags-grid">${erradosNums.map(n=>`<span class="flag-num-btn flagged" style="cursor:default;">${n}</span>`).join('')}</div></div>` : ''}
+        </div>`;
       }
       const apostilaUrl = apostilaHref(si,ai);
       const apostilaRel = apostilaRelPath(si,ai);
@@ -7666,6 +7704,18 @@ function renderAulasDaMateria(siAlvo, filter){
         e.stopPropagation();
         openStartSessionModal(si,ai);
       });
+      // 01/09/2026: total declarado da apostila, editável direto aqui na seção Exercícios do
+      // card da aula (mesma classe/comportamento do campo equivalente na aba Revisão).
+      const exercTotalInp = row.querySelector('.rev-exerc-total-inp');
+      if(exercTotalInp){
+        exercTotalInp.addEventListener('click', e=> e.stopPropagation());
+        exercTotalInp.addEventListener('change', ()=>{
+          getAula(si,ai).questoesTotalManual = Math.max(0, parseInt(exercTotalInp.value,10)||0);
+          save();
+          verificarEtapaExercicios();
+          renderAulasDaMateria(si, filter);
+        });
+      }
       // ago/2026 (bug reportado pelo Bruno): esse marcador ERA clicavel e chamava toggleStudied(),
       // que ao desmarcar zerava rec.pagesRead, rec.stage, rec.mastered, rec.nextReview, rec.ease
       // e rec.reviewHistory - e ao marcar de novo, setPagesRead(...,theory) recontava as paginas
@@ -10562,12 +10612,10 @@ function openEndSessionModal(){
       html += `<div class="form-row"><label>Questões respondidas nesta sessão</label><div style="font-size:1.2rem; font-weight:800;">${autoCount} (detectadas automaticamente pelo quiz)</div></div>`;
     } else {
       html += `
-      <div class="form-row-2">
-        <div class="form-row"><label>Quantas questões você respondeu</label><input type="number" id="endQCount" value="0" min="0"></div>
-        <div class="form-row"><label>Quantas acertou</label><input type="number" id="endQCorrect" value="0" min="0"></div>
-      </div>
-      <div style="font-size:.74rem; color:var(--text-mut); margin-bottom:12px;">Preencha se você resolveu questões fora do quiz do app (ex: no papel).</div>
-      ${buildFlagsGridHtml(a.si, a.ai)}`;
+      <div class="form-row"><label>Quantas questões você respondeu</label><input type="number" id="endQCount" value="0" min="0"></div>
+      <div style="font-size:.74rem; color:var(--text-mut); margin-bottom:12px;">Preencha se você resolveu questões fora do quiz do app (ex: no papel). Toque abaixo em quais errou - os acertos são calculados sozinhos.</div>
+      ${buildFlagsGridHtml(a.si, a.ai)}
+      <div class="form-row"><small id="endQCorrectPreview" style="color:var(--text-mut);"></small></div>`;
     }
   }
   html += `<button class="btn block" id="endSessionGo"><svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg> Encerrar sessão</button>`;
@@ -10575,7 +10623,21 @@ function openEndSessionModal(){
     html += `<div style="font-size:.72rem; color:var(--text-mut); text-align:center; margin-top:8px;">Encerrar sem escolher registra só o tempo, sem dar baixa na revisão.</div>`;
   }
   body.innerHTML = html;
-  if(a.tipo==='questoes' && a.questoesIdsCollected.length===0) wireFlagsGrid(body);
+  if(a.tipo==='questoes' && a.questoesIdsCollected.length===0){
+    wireFlagsGrid(body);
+    // 01/09/2026: previa "certas = feitas - erradas" ao vivo, conforme ele digita/toca -
+    // só pra deixar visível que o cálculo é automático (não entra em nenhum estado ainda).
+    const previewEl = document.getElementById('endQCorrectPreview');
+    const countInp = document.getElementById('endQCount');
+    function atualizarPreview(){
+      const feitas = parseInt(countInp.value,10)||0;
+      const erradas = body.querySelectorAll('.flag-num-btn.flagged').length;
+      previewEl.textContent = `Certas (calculado): ${Math.max(0,feitas-erradas)} · Erradas: ${erradas}`;
+    }
+    countInp.addEventListener('input', atualizarPreview);
+    body.querySelectorAll('.flag-num-btn').forEach(b=> b.addEventListener('click', atualizarPreview));
+    atualizarPreview();
+  }
 
   // Na sessao de revisao, os tres botoes funcionam como "encerrar avaliando": escolher
   // uma opcao ja fecha a sessao e da baixa na revisao de uma vez so.
@@ -10597,8 +10659,9 @@ function openEndSessionModal(){
       extra.catchUp = document.getElementById('endCatchUpChk').checked;
     } else if(a.questoesIdsCollected.length===0){
       extra.questoesCount = parseInt(document.getElementById('endQCount').value,10)||0;
-      extra.questoesCorrect = parseInt(document.getElementById('endQCorrect').value,10)||0;
-      saveFlaggedErradas(a.si, a.ai, body);
+      const erradasNesta = saveFlaggedErradas(a.si, a.ai, body);
+      extra.questoesWrongNums = erradasNesta;
+      extra.questoesCorrect = Math.max(0, extra.questoesCount - erradasNesta.length);
     }
     endActiveSession(extra);
     closeEndSessionModal(true);
@@ -10659,12 +10722,21 @@ function renderTempoManualForm(){
         </label>
       </div>`;
     } else {
-      extraWrap.innerHTML = `<div class="form-row-2">
-        <div class="form-row"><label>Questões respondidas</label><input type="number" id="manualQCount" min="0" value="0"></div>
-        <div class="form-row"><label>Acertos</label><input type="number" id="manualQCorrect" min="0" value="0"></div>
-      </div>
-      ${buildFlagsGridHtml(si, ai)}`;
+      extraWrap.innerHTML = `<div class="form-row"><label>Questões respondidas</label><input type="number" id="manualQCount" min="0" value="0"></div>
+      <div style="font-size:.74rem; color:var(--text-mut); margin-bottom:8px;">Toque abaixo em quais errou - os acertos são calculados sozinhos.</div>
+      ${buildFlagsGridHtml(si, ai)}
+      <div class="form-row"><small id="manualQCorrectPreview" style="color:var(--text-mut);"></small></div>`;
       wireFlagsGrid(extraWrap);
+      const previewEl = document.getElementById('manualQCorrectPreview');
+      const countInp = document.getElementById('manualQCount');
+      function atualizarPreviewManual(){
+        const feitas = parseInt(countInp.value,10)||0;
+        const erradas = extraWrap.querySelectorAll('.flag-num-btn.flagged').length;
+        previewEl.textContent = `Certas (calculado): ${Math.max(0,feitas-erradas)} · Erradas: ${erradas}`;
+      }
+      countInp.addEventListener('input', atualizarPreviewManual);
+      extraWrap.querySelectorAll('.flag-num-btn').forEach(b=> b.addEventListener('click', atualizarPreviewManual));
+      atualizarPreviewManual();
     }
   }
   function populateAulas(){
@@ -10694,8 +10766,9 @@ function renderTempoManualForm(){
       extra.catchUp = document.getElementById('manualCatchUpChk').checked;
     } else {
       extra.questoesCount = parseInt(document.getElementById('manualQCount').value,10)||0;
-      extra.questoesCorrect = parseInt(document.getElementById('manualQCorrect').value,10)||0;
-      saveFlaggedErradas(si, ai, document.getElementById('manualExtraFields'));
+      const erradasNesta = saveFlaggedErradas(si, ai, document.getElementById('manualExtraFields'));
+      extra.questoesWrongNums = erradasNesta;
+      extra.questoesCorrect = Math.max(0, extra.questoesCount - erradasNesta.length);
     }
     addManualSession(si, ai, tipoSel, minutos, extra);
     toast('Sessão manual registrada ');
