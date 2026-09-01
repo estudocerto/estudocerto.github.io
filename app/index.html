@@ -7350,13 +7350,17 @@ function resumoMateria(si){
   const s = SUBJECTS[si];
   let estudados = 0;
   s.aulas.forEach((a,ai)=>{ const r = state.aulas[key(si,ai)]; if(r && r.studied) estudados++; });
+  // 01/09/2026 (bug reportado pelo Bruno - "Questões Resolvidas" sempre 0 nos cards de
+  // matéria): esta função ainda lia do banco de questões extraído (bankFor/state.questions),
+  // arquivado desde 25/08 (log v11) - bankFor() sempre devolve [] agora, então o loop nunca
+  // executava e qResolvidas ficava travado em 0 pra qualquer matéria. Troca pra somar as
+  // sessões manuais de questões (mesmo motor usado no resto do app desde v11/v14 - ver
+  // questoesFeitasManual/questoesAcertosManual).
   let qTotal = 0, qResolvidas = 0, qDominadas = 0;
   s.aulas.forEach((a,ai)=>{
-    bankFor(si,ai).forEach(q=>{
-      qTotal++;
-      const r = state.questions[q.id];
-      if(r && r.attempts){ qResolvidas++; if(r.dominated) qDominadas++; }
-    });
+    qTotal += getAula(si,ai).questoesTotalManual||0;
+    qResolvidas += questoesFeitasManual(si,ai);
+    qDominadas += questoesAcertosManual(si,ai);
   });
   const totalPag = totalTheoryForSubject(si);
   const lidas = pagesReadForSubject(si);
