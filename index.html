@@ -4,175 +4,189 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Estudo Certo — Planeje, estude e revise no lugar certo</title>
-<meta name="description" content="Estudo Certo é a plataforma que transforma seu edital em um plano de estudos completo: ciclo de estudos automático, revisão espaçada, banco de questões e provas anteriores com gabarito.">
-<meta name="theme-color" content="#046A38">
+<meta name="description" content="Estudo Certo organiza teoria, exercícios e revisões de qualquer concurso num só lugar: ciclo de estudos que se reequilibra sozinho, revisão espaçada, calendário da semana e provas anteriores com gabarito.">
+<meta name="theme-color" content="#F6F5F0">
 <link rel="icon" href="/app/icon-192.png" sizes="192x192" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@500;600;700;800&family=Red+Hat+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --green:#046A38; --green-dark:#03502a; --green-light:#e6f3ec;
-    --yellow:#FCD116; --yellow-dark:#e0b800;
-    --ink:#122019; --ink-soft:#3d5548;
-    --bg:#fbfaf6; --card:#ffffff; --border:#e4e1d6;
+    --bg:#F6F5F0; --card:#EFEDE5; --ink:#141412; --ink-mut:#6B6A63;
+    --dark:#232320; --border:#E1DFD5;
+    --acid:#C3D613; --acid-dark:#8E9B0E; --on-acid:#141412;
+    --radius:20px; --radius-sm:12px; --radius-pill:999px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#141412; --card:#1D1D19; --ink:#F3F2EC; --ink-mut:#94938A;
+      --dark:#F3F2EC; --border:#2C2C27;
+      --acid:#D3E62E; --acid-dark:#EAF57A; --on-acid:#141412;
+    }
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} *,*::before,*::after{animation-duration:.01ms !important; transition-duration:.01ms !important;} }
   body{
     margin:0; background:var(--bg); color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
-    line-height:1.5;
+    font-family:'Red Hat Text',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+    line-height:1.55;
   }
   a{color:inherit;}
   img{max-width:100%; display:block;}
+  h1,h2,h3{ font-family:'Red Hat Display','Red Hat Text',sans-serif; }
   .wrap{max-width:1120px; margin:0 auto; padding:0 24px;}
+  ::selection{ background:var(--acid); color:var(--on-acid); }
+
   .btn{
-    display:inline-flex; align-items:center; gap:8px; border:none; cursor:pointer;
-    font-weight:800; font-size:1rem; padding:15px 28px; border-radius:999px; text-decoration:none;
-    transition:transform .15s ease, box-shadow .15s ease;
+    display:inline-flex; align-items:center; gap:9px; border:1.5px solid transparent; cursor:pointer;
+    font-weight:600; font-size:.96rem; padding:14px 26px; border-radius:var(--radius-pill); text-decoration:none;
+    font-family:inherit; transition:transform .12s ease, opacity .12s ease;
   }
-  .btn:hover{ transform:translateY(-2px); }
-  .btn-yellow{ background:var(--yellow); color:var(--green-dark); box-shadow:0 8px 24px rgba(252,209,22,.35); }
-  .btn-outline{ background:transparent; color:#fff; border:1.5px solid rgba(255,255,255,.5); }
-  .btn-green{ background:var(--green); color:#fff; box-shadow:0 8px 24px rgba(4,106,56,.25); }
+  .btn:active{ transform:translateY(1px); }
+  .btn-dark{ background:var(--dark); color:var(--bg); }
+  .btn-dark:hover{ opacity:.88; }
+  .btn-outline{ background:transparent; color:var(--ink); border-color:var(--border); }
+  .btn-outline:hover{ border-color:var(--ink-mut); }
+  .btn-acid{ background:var(--acid); color:var(--on-acid); }
+  .btn-acid:hover{ opacity:.9; }
 
   /* ---------- header ---------- */
-  header{
-    position:sticky; top:0; z-index:50; background:rgba(251,250,246,.9); backdrop-filter:blur(8px);
-    border-bottom:1px solid var(--border);
-  }
-  .nav{ display:flex; align-items:center; justify-content:space-between; padding:16px 24px; }
-  .brand{ display:flex; align-items:center; gap:10px; font-weight:800; font-size:1.15rem; text-decoration:none; color:var(--ink); }
-  .brand .ic{
-    width:34px; height:34px; border-radius:10px; background:var(--green); display:flex; align-items:center;
-    justify-content:center; color:var(--yellow); font-size:1.1rem;
-  }
-  nav.links{ display:flex; gap:28px; font-weight:650; font-size:.94rem; color:var(--ink-soft); }
+  header{ position:sticky; top:0; z-index:50; background:var(--bg); border-bottom:1px solid var(--border); }
+  .nav{ display:flex; align-items:center; justify-content:space-between; padding:18px 24px; }
+  .brand{ display:flex; align-items:center; gap:10px; font-family:'Red Hat Display',sans-serif; font-weight:700; font-size:1.1rem; text-decoration:none; color:var(--ink); }
+  .brand .ic{ width:30px; height:30px; border-radius:9px; background:var(--dark); display:flex; align-items:center; justify-content:center; color:var(--acid); font-size:.95rem; font-weight:900; }
+  nav.links{ display:flex; gap:30px; font-weight:500; font-size:.92rem; color:var(--ink-mut); }
   nav.links a{ text-decoration:none; }
-  nav.links a:hover{ color:var(--green); }
-  .nav-cta{ display:flex; gap:10px; align-items:center; }
-  .nav-cta .btn{ padding:11px 20px; font-size:.9rem; }
+  nav.links a:hover{ color:var(--ink); }
   @media (max-width:820px){ nav.links{ display:none; } }
+  .nav-cta .btn{ padding:10px 20px; font-size:.88rem; }
 
   /* ---------- hero ---------- */
-  .hero{
-    background:radial-gradient(circle at 15% 0%, #0a7a45, var(--green) 45%, var(--green-dark) 100%);
-    color:#fff; padding:76px 0 90px; position:relative; overflow:hidden;
-  }
-  .hero::after{
-    content:""; position:absolute; right:-120px; top:-120px; width:420px; height:420px; border-radius:50%;
-    background:rgba(252,209,22,.12);
-  }
-  .hero-grid{ display:grid; grid-template-columns:1.1fr .9fr; gap:56px; align-items:center; position:relative; }
+  .hero{ padding:64px 0 84px; }
+  .hero-grid{ display:grid; grid-template-columns:1.05fr .95fr; gap:52px; align-items:center; }
   @media (max-width:900px){ .hero-grid{ grid-template-columns:1fr; } }
-  .pill{
-    display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,.12); color:#eafff0;
-    padding:8px 16px; border-radius:999px; font-size:.82rem; font-weight:700; margin-bottom:22px;
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px; color:var(--ink-mut); font-weight:600;
+    font-size:.86rem; margin-bottom:18px;
   }
-  .pill i{ width:7px; height:7px; border-radius:50%; background:var(--yellow); display:inline-block; }
-  h1{ font-size:clamp(2.1rem, 4.2vw, 3.2rem); line-height:1.12; margin:0 0 20px; font-weight:850; letter-spacing:-.01em; }
-  h1 .accent{ color:var(--yellow); }
-  .hero p.lead{ font-size:1.13rem; color:#e5f3ea; max-width:520px; margin:0 0 32px; }
-  .hero-ctas{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:28px; }
-  .hero-facts{ display:flex; gap:22px; flex-wrap:wrap; }
-  .hero-fact{ display:flex; align-items:center; gap:9px; font-size:.88rem; font-weight:650; color:#dff2e6; }
-  .hero-fact .dot{ width:20px; height:20px; border-radius:50%; background:var(--yellow); color:var(--green-dark); display:flex; align-items:center; justify-content:center; font-size:.7rem; font-weight:900; flex:none; }
+  .eyebrow .dot{ width:7px; height:7px; border-radius:50%; background:var(--acid-dark); display:inline-block; }
+  h1{ font-size:clamp(2.1rem, 4vw, 3.15rem); line-height:1.14; margin:0 0 22px; font-weight:600; letter-spacing:-.01em; }
+  /* assinatura: o marca-texto passando por cima da frase-chave no load. box-decoration-break:
+     clone trata cada linha (quando a frase quebra, ex. no celular) como seu proprio traco -
+     nao dá pra travar em white-space:nowrap, isso estoura a largura em telas estreitas. */
+  .hl{
+    background-image:linear-gradient(var(--acid), var(--acid));
+    background-repeat:no-repeat; background-size:0% 100%; background-position:0 0;
+    box-decoration-break:clone; -webkit-box-decoration-break:clone;
+    padding:.02em .12em; margin:0 -.12em; border-radius:6px;
+    animation:sweep .7s .5s cubic-bezier(.2,.9,.25,1) forwards;
+  }
+  @keyframes sweep{ to{ background-size:100% 100%; } }
+  @media (prefers-reduced-motion: reduce){ .hl{ animation:none; background-size:100% 100%; } }
+  .hero p.lead{ font-size:1.1rem; color:var(--ink-mut); max-width:500px; margin:0 0 30px; }
+  .hero-ctas{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:30px; }
+  .hero-facts{ display:flex; flex-direction:column; gap:9px; }
+  .hero-fact{ display:flex; align-items:center; gap:10px; font-size:.88rem; font-weight:500; color:var(--ink-mut); }
+  .hero-fact svg{ flex:none; color:var(--acid-dark); }
 
-  /* mock dashboard card */
-  .mock{
-    background:#0f2318; border-radius:20px; padding:22px; box-shadow:0 30px 70px rgba(0,0,0,.35);
-    border:1px solid rgba(255,255,255,.08);
-  }
-  .mock-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
-  .mock-top .t{ color:#fff; font-weight:800; font-size:.95rem; }
-  .mock-top .s{ color:#9db8a8; font-size:.72rem; }
-  .mock-tag{ background:rgba(252,209,22,.15); color:var(--yellow); font-size:.68rem; font-weight:800; padding:4px 10px; border-radius:999px; }
-  .mock-row{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px; }
-  .mock-card{ background:rgba(255,255,255,.05); border-radius:12px; padding:12px; }
-  .mock-card b{ display:block; color:#fff; font-size:1.2rem; }
-  .mock-card span{ color:#9db8a8; font-size:.68rem; }
-  .mock-bar-wrap{ background:rgba(255,255,255,.05); border-radius:12px; padding:14px; margin-bottom:10px; }
-  .mock-bar-wrap .lbl{ display:flex; justify-content:space-between; color:#cfe6d8; font-size:.75rem; margin-bottom:8px; }
-  .mock-bar{ height:8px; border-radius:999px; background:rgba(255,255,255,.08); overflow:hidden; }
-  .mock-bar i{ display:block; height:100%; background:linear-gradient(90deg, var(--yellow), #ffe888); border-radius:999px; }
-  .mock-list{ background:rgba(255,255,255,.05); border-radius:12px; padding:12px 14px; }
-  .mock-list .li{ display:flex; justify-content:space-between; align-items:center; padding:7px 0; font-size:.76rem; color:#d9ede0; border-bottom:1px solid rgba(255,255,255,.06); }
-  .mock-list .li:last-child{ border-bottom:none; }
-  .mock-list .chip{ background:rgba(4,106,56,.35); color:#a9f0c4; font-size:.64rem; font-weight:800; padding:3px 8px; border-radius:999px; }
-  .mock-caption{ text-align:center; color:#dff2e6; font-size:.72rem; margin-top:12px; opacity:.75; }
+  /* ---------- bento do hero: o app de verdade, em miniatura ---------- */
+  .bento{ display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:min-content; gap:12px; }
+  .b-tile{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
+  .b-cal{ grid-column:1/3; }
+  .b-acerto{ grid-row:2/4; display:flex; flex-direction:column; }
+  .b-mat{ grid-column:1/3; }
+  .b-lbl{ font-size:.72rem; font-weight:600; color:var(--ink-mut); margin-bottom:14px; }
+  .b-cal-row{ display:flex; gap:7px; justify-content:space-between; }
+  .b-cal-day{ flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .b-cal-day span{ font-size:.66rem; color:var(--ink-mut); font-weight:600; }
+  .b-cal-blk{ width:100%; height:20px; border-radius:6px; background:var(--border); }
+  .b-cal-blk.on{ background:var(--dark); }
+  .b-cal-blk.acid{ background:var(--acid); }
+  .b-acerto .pct{ font-family:'Red Hat Display',sans-serif; font-weight:700; font-size:2.2rem; line-height:1; margin-bottom:6px; }
+  .b-acerto .pct-lbl{ font-size:.78rem; color:var(--ink-mut); margin-bottom:16px; }
+  .b-acerto .rows{ margin-top:auto; display:flex; flex-direction:column; gap:8px; }
+  .b-acerto .row{ display:flex; justify-content:space-between; font-size:.8rem; color:var(--ink-mut); border-top:1px solid var(--border); padding-top:8px; }
+  .b-acerto .row b{ color:var(--ink); font-weight:600; }
+  .b-tile.b-hoje .chip{ display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:.8rem; padding:8px 0; border-top:1px solid var(--border); }
+  .b-tile.b-hoje .chip:first-of-type{ border-top:none; }
+  .b-tile.b-hoje .tag{ font-size:.64rem; font-weight:600; padding:4px 9px; border-radius:var(--radius-pill); background:var(--acid); color:var(--on-acid); white-space:nowrap; }
+  .b-tile.b-acid{ background:var(--acid); color:var(--on-acid); border-color:transparent; display:flex; flex-direction:column; justify-content:space-between; }
+  .b-tile.b-acid .pct{ font-family:'Red Hat Display',sans-serif; font-weight:700; font-size:1.8rem; }
+  .b-tile.b-acid .b-lbl{ color:var(--on-acid); opacity:.7; }
+  .b-mat .bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .b-mat .bar-row:last-child{ margin-bottom:0; }
+  .b-mat .bar-row span:first-child{ font-size:.8rem; color:var(--ink-mut); width:96px; flex:none; }
+  .b-mat .bar-track{ flex:1; height:6px; border-radius:var(--radius-pill); background:var(--border); overflow:hidden; }
+  .b-mat .bar-track i{ display:block; height:100%; background:var(--dark); border-radius:var(--radius-pill); }
+  .b-mat .bar-row span:last-child{ font-size:.76rem; color:var(--ink-mut); width:32px; text-align:right; flex:none; }
+  .bento-caption{ margin-top:12px; font-size:.76rem; color:var(--ink-mut); text-align:center; }
 
   /* ---------- section shared ---------- */
   section{ padding:88px 0; }
-  .kicker{ color:var(--green); font-weight:800; font-size:.8rem; letter-spacing:.06em; text-transform:uppercase; margin-bottom:10px; }
-  .sec-head{ max-width:640px; margin:0 auto 52px; text-align:center; }
-  .sec-head h2{ font-size:clamp(1.6rem,3vw,2.3rem); margin:0 0 14px; font-weight:850; letter-spacing:-.01em; }
-  .sec-head p{ color:var(--ink-soft); font-size:1.02rem; }
+  .kicker{ color:var(--ink-mut); font-weight:600; font-size:.86rem; margin-bottom:10px; }
+  .sec-head{ max-width:620px; margin:0 auto 48px; text-align:center; }
+  .sec-head h2{ font-size:clamp(1.6rem,2.8vw,2.3rem); margin:0 0 12px; font-weight:600; letter-spacing:-.01em; }
+  .sec-head p{ color:var(--ink-mut); font-size:1.02rem; }
 
   /* about / origin */
   .about{ background:var(--card); }
-  .about-grid{ display:grid; grid-template-columns:.9fr 1.1fr; gap:56px; align-items:center; }
+  .about-grid{ display:grid; grid-template-columns:.85fr 1.15fr; gap:52px; align-items:center; }
   @media (max-width:860px){ .about-grid{ grid-template-columns:1fr; } }
-  .about-card{
-    background:var(--green-light); border-radius:22px; padding:34px; border:1px solid #d7ecdf;
-  }
-  .about-card h3{ margin:0 0 10px; color:var(--green-dark); font-size:1.3rem; }
-  .about-card p{ color:var(--ink-soft); margin:0; }
-  .about-text p{ color:var(--ink-soft); font-size:1.03rem; }
-  .about-text strong{ color:var(--ink); }
+  .about-card{ background:var(--bg); border-radius:var(--radius); padding:32px; border:1px solid var(--border); }
+  .about-card h3{ margin:0 0 10px; font-size:1.2rem; font-weight:600; }
+  .about-card p{ color:var(--ink-mut); margin:0; }
+  .about-text p{ color:var(--ink-mut); font-size:1.02rem; }
+  .about-text strong{ color:var(--ink); font-weight:600; }
+  .about-text h2{ font-size:1.75rem; margin:0 0 16px; font-weight:600; letter-spacing:-.01em; }
 
-  /* features */
-  .features{ background:#f2f1e9; }
-  .feat-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
-  @media (max-width:900px){ .feat-grid{ grid-template-columns:repeat(2,1fr); } }
-  @media (max-width:620px){ .feat-grid{ grid-template-columns:1fr; } }
-  .feat-card{
-    background:var(--card); border:1px solid var(--border); border-radius:18px; padding:26px;
-    transition:transform .15s ease, box-shadow .15s ease;
-  }
-  .feat-card:hover{ transform:translateY(-4px); box-shadow:0 16px 32px rgba(4,106,56,.1); }
-  .feat-ic{
-    width:46px; height:46px; border-radius:12px; background:var(--green); color:var(--yellow);
-    display:flex; align-items:center; justify-content:center; font-size:1.3rem; margin-bottom:16px;
-  }
-  .feat-card h3{ margin:0 0 8px; font-size:1.06rem; }
-  .feat-card p{ margin:0; color:var(--ink-soft); font-size:.92rem; }
+  /* funcionalidades */
+  .toc{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+  @media (max-width:760px){ .toc{ grid-template-columns:1fr; } }
+  .toc-item{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:26px; }
+  .toc-num{ font-family:'Red Hat Display',sans-serif; font-size:.86rem; font-weight:700; color:var(--acid-dark); margin-bottom:14px; }
+  .toc-item h3{ margin:0 0 8px; font-size:1.08rem; font-weight:600; }
+  .toc-item p{ margin:0; color:var(--ink-mut); font-size:.94rem; }
 
   /* how it works */
-  .how{ background:var(--card); }
-  .how-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:28px; counter-reset:step; }
+  .how-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
   @media (max-width:820px){ .how-grid{ grid-template-columns:1fr; } }
-  .how-card{ position:relative; padding:30px 24px 24px; border:1px solid var(--border); border-radius:18px; background:var(--bg); }
-  .how-num{
-    width:38px; height:38px; border-radius:50%; background:var(--green-dark); color:#fff; font-weight:800;
-    display:flex; align-items:center; justify-content:center; margin-bottom:16px; font-size:1rem;
-  }
-  .how-card h3{ margin:0 0 8px; font-size:1.05rem; }
-  .how-card p{ margin:0; color:var(--ink-soft); font-size:.92rem; }
+  .how-card{ padding:28px 26px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); }
+  .how-num{ display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50%; background:var(--dark); color:var(--bg); font-weight:700; font-size:.88rem; margin-bottom:16px; }
+  .how-card h3{ margin:0 0 8px; font-size:1.04rem; font-weight:600; }
+  .how-card p{ margin:0; color:var(--ink-mut); font-size:.92rem; }
 
   /* qualify / who it's for */
-  .qualify{ background:var(--ink); color:#eef4ef; }
-  .qual-grid{ display:grid; grid-template-columns:1fr 1fr; gap:40px; }
+  .qualify{ background:var(--card); }
+  .qual-grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   @media (max-width:820px){ .qual-grid{ grid-template-columns:1fr; } }
-  .qual-box h3{ font-size:1.15rem; margin:0 0 16px; display:flex; align-items:center; gap:10px; }
+  .qual-box{ padding:30px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); }
+  .qual-box h3{ font-size:1.05rem; margin:0 0 16px; display:flex; align-items:center; gap:9px; font-weight:600; }
   .qual-box ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:12px; }
-  .qual-box li{ display:flex; gap:10px; align-items:flex-start; font-size:.95rem; color:#cfd9d2; }
-  .qual-box.yes h3{ color:var(--yellow); }
-  .qual-box.yes li b{ color:var(--yellow); }
-  .qual-box.no li b{ color:#ff9d8a; }
+  .qual-box li{ display:flex; gap:10px; align-items:flex-start; font-size:.94rem; color:var(--ink-mut); }
+  .qual-box.yes h3{ color:var(--acid-dark); }
+  .qual-box.yes li b, .qual-box.no li b{ color:var(--ink); font-weight:600; }
 
   /* final CTA */
-  .cta-final{
-    background:linear-gradient(120deg, var(--yellow), #ffe888); color:var(--green-dark); text-align:center;
+  .cta-final{ text-align:center; }
+  .cta-final .badge{
+    display:inline-flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--border);
+    border-radius:var(--radius-pill); padding:7px 16px; font-weight:600; font-size:.82rem; color:var(--ink-mut);
+    margin-bottom:24px;
   }
-  .cta-final h2{ font-size:clamp(1.6rem,3.4vw,2.4rem); margin:0 0 14px; font-weight:850; }
-  .cta-final p{ margin:0 0 30px; font-size:1.05rem; opacity:.85; }
-  .cta-final .btn{ background:var(--green-dark); color:#fff; box-shadow:0 10px 26px rgba(0,0,0,.18); }
+  .cta-final .badge .dot{ width:7px; height:7px; border-radius:50%; background:var(--acid-dark); }
+  .cta-final h2{ font-size:clamp(1.6rem,3vw,2.2rem); margin:0 0 14px; font-weight:600; letter-spacing:-.01em; }
+  .cta-final p{ margin:0 0 28px; font-size:1.02rem; color:var(--ink-mut); }
 
-  footer{ background:var(--green-dark); color:#cfe6d8; padding:48px 0 28px; }
-  .foot-grid{ display:flex; justify-content:space-between; align-items:flex-start; gap:24px; flex-wrap:wrap; margin-bottom:28px; }
-  .foot-brand{ display:flex; align-items:center; gap:10px; color:#fff; font-weight:800; font-size:1.05rem; }
-  .foot-links{ display:flex; gap:26px; flex-wrap:wrap; font-size:.88rem; }
-  .foot-links a{ text-decoration:none; color:#cfe6d8; }
-  .foot-links a:hover{ color:var(--yellow); }
-  .foot-bottom{ border-top:1px solid rgba(255,255,255,.12); padding-top:20px; font-size:.78rem; color:#9fc0ac; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+  footer{ background:var(--dark); color:var(--bg); padding:44px 0 26px; }
+  @media (prefers-color-scheme: dark){ footer{ background:#0B0B09; } }
+  .foot-grid{ display:flex; justify-content:space-between; align-items:flex-start; gap:24px; flex-wrap:wrap; margin-bottom:26px; }
+  .foot-brand{ display:flex; align-items:center; gap:10px; font-family:'Red Hat Display',sans-serif; font-weight:700; font-size:1.02rem; }
+  .foot-brand .ic{ width:28px; height:28px; border-radius:9px; background:var(--acid); color:var(--on-acid); display:flex; align-items:center; justify-content:center; font-size:.9rem; font-weight:900; }
+  .foot-links{ display:flex; gap:24px; flex-wrap:wrap; font-size:.86rem; }
+  .foot-links a{ text-decoration:none; opacity:.75; }
+  .foot-links a:hover{ opacity:1; }
+  .foot-bottom{ border-top:1px solid rgba(255,255,255,.14); padding-top:18px; font-size:.78rem; opacity:.6; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; }
 </style>
 </head>
 <body>
@@ -186,7 +200,7 @@
       <a href="#para-quem">Para quem é</a>
     </nav>
     <div class="nav-cta">
-      <a class="btn btn-green" href="/app/">Abrir o app</a>
+      <a class="btn btn-dark" href="/app/">Abrir o app</a>
     </div>
   </div>
 </header>
@@ -194,39 +208,58 @@
 <section class="hero" id="top">
   <div class="wrap hero-grid">
     <div>
-      <span class="pill"><i></i> Planejamento de estudos para concursos</span>
-      <h1>Transforme horas soltas de estudo em um <span class="accent">plano que aprova</span>.</h1>
-      <p class="lead">O Estudo Certo organiza sua teoria, suas questões e suas revisões num só lugar — com ciclo de estudos automático, revisão espaçada e provas anteriores com gabarito oficial.</p>
+      <span class="eyebrow"><span class="dot"></span> Pra quem estuda pra concurso</span>
+      <h1>Sua apostila, suas questões e suas revisões <span class="hl">num plano só, que se ajusta sozinho</span>.</h1>
+      <p class="lead">Chega de planilha solta. O Estudo Certo monta seu ciclo de estudos, reequilibra a semana quando você atrasa, agenda a revisão espaçada de cada aula e junta teoria com prática — matéria por matéria.</p>
       <div class="hero-ctas">
-        <a class="btn btn-yellow" href="/app/">Começar agora — é grátis →</a>
+        <a class="btn btn-acid" href="/app/">Começar agora — é grátis →</a>
         <a class="btn btn-outline" href="#como-funciona">Ver como funciona</a>
       </div>
       <div class="hero-facts">
-        <div class="hero-fact"><span class="dot">✓</span> Sem cartão de crédito</div>
-        <div class="hero-fact"><span class="dot">✓</span> Funciona no navegador ou instalado</div>
-        <div class="hero-fact"><span class="dot">✓</span> Seus dados sincronizam entre aparelhos</div>
+        <div class="hero-fact"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Sem cartão de crédito</div>
+        <div class="hero-fact"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Funciona no navegador ou instalado</div>
+        <div class="hero-fact"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Seus dados sincronizam entre aparelhos</div>
       </div>
     </div>
-    <div class="mock">
-      <div class="mock-top">
-        <div><div class="t">Painel de estudos</div><div class="s">exemplo ilustrativo</div></div>
-        <div class="mock-tag">Ciclo ativo</div>
+    <div>
+      <div class="bento">
+        <div class="b-tile b-cal">
+          <div class="b-lbl">Calendário da semana</div>
+          <div class="b-cal-row">
+            <div class="b-cal-day"><div class="b-cal-blk on"></div><div class="b-cal-blk"></div><span>SEG</span></div>
+            <div class="b-cal-day"><div class="b-cal-blk on"></div><div class="b-cal-blk on"></div><span>TER</span></div>
+            <div class="b-cal-day"><div class="b-cal-blk"></div><div class="b-cal-blk"></div><span>QUA</span></div>
+            <div class="b-cal-day"><div class="b-cal-blk acid"></div><div class="b-cal-blk"></div><span>QUI</span></div>
+            <div class="b-cal-day"><div class="b-cal-blk on"></div><div class="b-cal-blk"></div><span>SEX</span></div>
+          </div>
+        </div>
+        <div class="b-tile b-acerto">
+          <div class="b-lbl">Taxa de acerto</div>
+          <div class="pct">74%</div>
+          <div class="pct-lbl">questões praticadas</div>
+          <div class="rows">
+            <div class="row"><span>Feitas</span><b>216</b></div>
+            <div class="row"><span>Certas</span><b>160</b></div>
+            <div class="row"><span>Erradas</span><b>56</b></div>
+          </div>
+        </div>
+        <div class="b-tile b-hoje">
+          <div class="b-lbl">Pra hoje</div>
+          <div class="chip"><span>Concordância — Português</span><span class="tag">revisar</span></div>
+          <div class="chip"><span>Estoques — Adm. Materiais</span><span class="tag">exercícios</span></div>
+        </div>
+        <div class="b-tile b-acid">
+          <div class="b-lbl">Sequência</div>
+          <div class="pct">18 dias</div>
+        </div>
+        <div class="b-tile b-mat">
+          <div class="b-lbl">Matérias</div>
+          <div class="bar-row"><span>Direito Adm.</span><div class="bar-track"><i style="width:81%"></i></div><span>81%</span></div>
+          <div class="bar-row"><span>Português</span><div class="bar-track"><i style="width:52%"></i></div><span>52%</span></div>
+          <div class="bar-row"><span>Raciocínio Lóg.</span><div class="bar-track"><i style="width:23%"></i></div><span>23%</span></div>
+        </div>
       </div>
-      <div class="mock-row">
-        <div class="mock-card"><b>62%</b><span>Páginas lidas</span></div>
-        <div class="mock-card"><b>1.240</b><span>Questões respondidas</span></div>
-        <div class="mock-card"><b>18</b><span>Dias seguidos</span></div>
-      </div>
-      <div class="mock-bar-wrap">
-        <div class="lbl"><span>Taxa de domínio</span><span>74%</span></div>
-        <div class="mock-bar"><i style="width:74%"></i></div>
-      </div>
-      <div class="mock-list">
-        <div class="li"><span>Regência e Crase — Português</span><span class="chip">revisar hoje</span></div>
-        <div class="li"><span>Estoques II — Adm. de Materiais</span><span class="chip">exercícios 48h</span></div>
-        <div class="li"><span>Juros Compostos — Mat. Financeira</span><span class="chip">dominada</span></div>
-      </div>
-      <div class="mock-caption">Ilustração do painel — os números mudam de acordo com o seu progresso real.</div>
+      <div class="bento-caption">Ilustração do painel — os números mudam de acordo com o seu progresso real.</div>
     </div>
   </div>
 </section>
@@ -234,55 +267,49 @@
 <section class="about">
   <div class="wrap about-grid">
     <div class="about-card">
-      <h3>Por que o Estudo Certo existe</h3>
-      <p>Nasceu de um problema real: organizar teoria, questões, apostilas e revisões de um edital inteiro em planilhas soltas não escala. O Estudo Certo junta tudo isso num único lugar, com o cronograma se ajustando sozinho conforme você estuda.</p>
+      <h3>Por que existe</h3>
+      <p>Organizar teoria, questões, apostilas e revisões de um edital inteiro em planilha solta não escala. O Estudo Certo junta tudo isso num lugar só, com o cronograma se ajustando sozinho conforme você estuda de verdade.</p>
     </div>
     <div class="about-text">
       <div class="kicker">Sobre a plataforma</div>
-      <h2 style="font-size:1.9rem; margin:0 0 16px;">Feito para quem estuda todos os dias, não só para quem monta plano de estudos.</h2>
-      <p>Em vez de exigir que você monte planilhas e calcule datas de revisão manualmente, o Estudo Certo <strong>calcula seu ciclo de estudos com base no que falta ler</strong>, agenda automaticamente as <strong>revisões espaçadas</strong> depois de cada aula e some estudo de teoria com prática em <strong>questões comentadas</strong> — matéria por matéria, apostila por apostila.</p>
-      <p>Tudo o que você faz no app conta pros mesmos indicadores, não importa se você entrou por "Matérias", "Questões" ou "Provas" — o progresso é um só.</p>
+      <h2>Feito pra quem estuda todos os dias, não só pra quem monta plano de estudos.</h2>
+      <p>Em vez de te fazer calcular datas de revisão na mão, o Estudo Certo <strong>monta seu ciclo de estudos</strong> com base no que ainda falta ler, <strong>reequilibra a semana sozinho</strong> quando alguma matéria fica pra trás e agenda as <strong>revisões espaçadas</strong> depois de cada aula.</p>
+      <p>Teoria, exercícios e revisão contam pro mesmo progresso, não importa por onde você entrou — "Matérias", "Planejamento" ou "Provas".</p>
     </div>
   </div>
 </section>
 
-<section class="features" id="funcionalidades">
+<section id="funcionalidades">
   <div class="wrap">
     <div class="sec-head">
       <div class="kicker">Funcionalidades</div>
-      <h2>Tudo que você precisa pra estudar com método</h2>
-      <p>Cada recurso do Estudo Certo existe pra resolver um problema real de quem estuda pra concurso.</p>
+      <h2>Tudo que entra na conta de "estudei de verdade hoje"</h2>
+      <p>Cada item resolve um problema real de quem estuda pra concurso sozinho, sem curso presencial marcando o ritmo.</p>
     </div>
-    <div class="feat-grid">
-      <div class="feat-card">
-        <div class="feat-ic">↻</div>
-        <h3>Ciclo de Estudos automático</h3>
-        <p>Diga quantas horas por semana você tem e o app monta a sequência de matérias, com peso proporcional ao que falta ler em cada uma.</p>
+    <div class="toc">
+      <div class="toc-item">
+        <div class="toc-num">01</div>
+        <h3>Ciclo de estudos que se reequilibra sozinho</h3><p>Diga quantas horas por semana você tem. O app distribui as matérias por peso — o que falta ler puxa mais tempo — e recalcula toda semana a partir do que ainda está pendente.</p>
       </div>
-      <div class="feat-card">
-        <div class="feat-ic">⏰</div>
-        <h3>Revisão espaçada</h3>
-        <p>Depois da teoria e dos exercícios de cada aula, o app agenda sozinho 3 revisões espaçadas (7 → 15 → 30 dias), recalculando se você mudar o intervalo.</p>
+      <div class="toc-item">
+        <div class="toc-num">02</div>
+        <h3>Calendário da semana</h3><p>Veja o ciclo virar dias de verdade. Arraste uma matéria de um dia pro outro quando a rotina mudar — o app reequilibra as horas entre os dias que sobraram.</p>
       </div>
-      <div class="feat-card">
-        <div class="feat-ic">?</div>
-        <h3>Banco de questões</h3>
-        <p>Pratique por matéria, por apostila específica ou todas juntas. Toda resposta atualiza sua taxa de domínio, esteja você onde estiver no app.</p>
+      <div class="toc-item">
+        <div class="toc-num">03</div>
+        <h3>Revisão espaçada</h3><p>Depois da teoria e dos exercícios de cada aula, o app agenda sozinho as revisões seguintes — e reagenda se você mudar o intervalo de uma matéria.</p>
       </div>
-      <div class="feat-card">
-        <div class="feat-ic">▤</div>
-        <h3>Provas anteriores oficiais</h3>
-        <p>Cadernos completos de concursos anteriores, com gabarito oficial. Faça a prova inteira cronometrada ou só as questões de uma matéria.</p>
+      <div class="toc-item">
+        <div class="toc-num">04</div>
+        <h3>Exercícios com registro simples</h3><p>Diga quantas questões fez e toque nas que errou — os acertos são calculados sozinhos, sem planilha à parte.</p>
       </div>
-      <div class="feat-card">
-        <div class="feat-ic">⇄</div>
-        <h3>Sincronização entre aparelhos</h3>
-        <p>Crie uma conta e continue de onde parou em qualquer dispositivo. Sem conta, o progresso fica salvo só neste navegador — sua escolha.</p>
+      <div class="toc-item">
+        <div class="toc-num">05</div>
+        <h3>Provas anteriores com gabarito</h3><p>Cadernos completos de edições passadas do seu concurso. Faça a prova inteira cronometrada ou só as questões de uma matéria.</p>
       </div>
-      <div class="feat-card">
-        <div class="feat-ic">▣</div>
-        <h3>Instalável como app</h3>
-        <p>Instale o Estudo Certo no celular ou computador pra abrir em tela cheia, sem barra de navegador — e continue com o mesmo progresso.</p>
+      <div class="toc-item">
+        <div class="toc-num">06</div>
+        <h3>Sincroniza e instala</h3><p>Continue de onde parou em qualquer aparelho, ou use só neste navegador — sua escolha. Instalável pra abrir em tela cheia.</p>
       </div>
     </div>
   </div>
@@ -298,17 +325,17 @@
       <div class="how-card">
         <div class="how-num">1</div>
         <h3>Configure seu edital</h3>
-        <p>Escolha as matérias ativas e quantas horas por semana você pretende estudar. O app já calcula o peso de cada matéria pra você.</p>
+        <p>Escolha as matérias ativas e quantas horas por semana você pretende estudar. O app calcula o peso de cada uma pra você.</p>
       </div>
       <div class="how-card">
         <div class="how-num">2</div>
-        <h3>Siga o ciclo de estudos</h3>
-        <p>Leia a teoria de cada aula na ordem sugerida, faça os exercícios em até 48h e deixe o app agendar as revisões sozinho.</p>
+        <h3>Siga o ciclo</h3>
+        <p>Leia a teoria de cada aula na ordem sugerida, registre os exercícios em até 48h e deixe o app agendar as revisões sozinho.</p>
       </div>
       <div class="how-card">
         <div class="how-num">3</div>
-        <h3>Acompanhe seu progresso</h3>
-        <p>Veja sua taxa de domínio, sua sequência de dias estudando e o que falta pra terminar a teoria dentro do prazo que você definir.</p>
+        <h3>Acompanhe o progresso</h3>
+        <p>Veja sua taxa de acerto, sua sequência de dias estudando e o que falta pra terminar a teoria dentro do prazo que você definir.</p>
       </div>
     </div>
   </div>
@@ -316,9 +343,9 @@
 
 <section class="qualify" id="para-quem">
   <div class="wrap">
-    <div class="sec-head" style="color:#fff;">
-      <div class="kicker" style="color:var(--yellow);">Pra quem é</div>
-      <h2 style="color:#fff;">O Estudo Certo é pra você que...</h2>
+    <div class="sec-head">
+      <div class="kicker">Pra quem é</div>
+      <h2>O Estudo Certo é pra você que...</h2>
     </div>
     <div class="qual-grid">
       <div class="qual-box yes">
@@ -326,11 +353,11 @@
         <ul>
           <li><b>Sim —</b> se você tem um edital ou várias matérias pra organizar e não quer depender de planilha solta.</li>
           <li><b>Sim —</b> se você esquece de revisar o que já estudou e quer isso automatizado.</li>
-          <li><b>Sim —</b> se você quer treinar com questões comentadas e provas anteriores reais.</li>
+          <li><b>Sim —</b> se você quer treinar com questões e provas anteriores reais, não só ler PDF.</li>
         </ul>
       </div>
       <div class="qual-box no">
-        <h3 style="color:#ff9d8a;">✕ Talvez não seja pra agora</h3>
+        <h3>✕ Talvez não seja pra agora</h3>
         <ul>
           <li><b>Ainda não —</b> se você só quer ler PDFs sem acompanhar nenhum indicador de progresso.</li>
           <li><b>Ainda não —</b> se você já tem um método fechado que funciona 100% pra você.</li>
@@ -342,16 +369,17 @@
 
 <section class="cta-final">
   <div class="wrap">
+    <span class="badge"><span class="dot"></span>Usado todo dia, por quem construiu</span>
     <h2>Comece a estudar com método hoje.</h2>
     <p>Sem cartão de crédito, sem instalação obrigatória. Abra o app e monte seu primeiro ciclo de estudos em menos de dois minutos.</p>
-    <a class="btn" href="/app/">Abrir o Estudo Certo →</a>
+    <a class="btn btn-acid" href="/app/">Abrir o Estudo Certo →</a>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
     <div class="foot-grid">
-      <div class="foot-brand"><span class="ic" style="width:30px;height:30px;border-radius:8px;background:var(--yellow);color:var(--green-dark);display:flex;align-items:center;justify-content:center;font-size:.9rem;">✓</span>Estudo Certo</div>
+      <div class="foot-brand"><span class="ic">✓</span>Estudo Certo</div>
       <div class="foot-links">
         <a href="#funcionalidades">Funcionalidades</a>
         <a href="#como-funciona">Como funciona</a>
