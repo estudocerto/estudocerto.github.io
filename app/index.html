@@ -7590,6 +7590,22 @@ function renderMateriaDetalhe(si, filter){
 }
 
 // Lista de aulas — o mesmo conteudo de antes, agora restrito a uma materia.
+// 09/09/2026 (pedido do Bruno): aulas com "Parte 2"/"B" acabam entrando fora de ordem numerica
+// no array (push() so acrescenta no fim - ver convencao do projeto, o indice de cada aula eh a
+// chave do progresso salvo, entao NUNCA reordenamos o array em si). Essa funcao so calcula uma
+// ORDEM DE EXIBICAO a partir do numero no inicio do titulo ("05B - ..." -> [5,"B"]), sem tocar
+// no indice real (ai) de cada aula - usada so pra ordenar a lista visual da aba Materias.
+function ordemExibicaoAula(titulo){
+  const m = /^(\d+)([A-Za-z]*)/.exec(titulo||"");
+  if(!m) return [999999, titulo||""];
+  return [parseInt(m[1],10), m[2]];
+}
+function ordenarAulasParaExibicao(aulas){
+  return aulas.map((a,ai)=>({a,ai})).sort((x,y)=>{
+    const [nx,lx] = ordemExibicaoAula(x.a), [ny,ly] = ordemExibicaoAula(y.a);
+    return nx!==ny ? nx-ny : lx.localeCompare(ly);
+  });
+}
 function renderAulasDaMateria(siAlvo, filter){
   filter = (filter||"").toLowerCase().trim();
   const wrap = document.getElementById('materiasList');
@@ -7598,7 +7614,8 @@ function renderAulasDaMateria(siAlvo, filter){
     if(si!==siAlvo) return;
     if(!isSubjectActive(si)) return; // materia removida do ciclo tambem some da lista de Materias
     const matchSubj = s.name.toLowerCase().includes(filter);
-    const filteredAulas = s.aulas.map((a,ai)=>({a,ai})).filter(x=> matchSubj || x.a.toLowerCase().includes(filter));
+    const aulasOrdenadas = ordenarAulasParaExibicao(s.aulas);
+    const filteredAulas = aulasOrdenadas.filter(x=> matchSubj || x.a.toLowerCase().includes(filter));
     if(filter && filteredAulas.length===0) return;
 
     let done=0; s.aulas.forEach((a,ai)=>{ const r=state.aulas[key(si,ai)]; if(r&&r.studied) done++; });
@@ -7621,7 +7638,7 @@ function renderAulasDaMateria(siAlvo, filter){
 
     const body = document.createElement('div');
     body.className='subj-body';
-    (filter? filteredAulas : s.aulas.map((a,ai)=>({a,ai}))).forEach(({a,ai})=>{
+    (filter? filteredAulas : aulasOrdenadas).forEach(({a,ai})=>{
       const rec = getAula(si,ai);
       const row = document.createElement('div');
       row.className='aula-row';
