@@ -3802,6 +3802,19 @@ function dataLocalDe(ms){
 }
 function todayStr(){ return dataLocalDe(Date.now()); }
 function addDays(str,n){ const d=new Date(str+"T00:00:00"); d.setDate(d.getDate()+n); return dataLocalDe(d.getTime()); }
+/* 12/09/2026 (pedido do Bruno): pra métricas de ATIVIDADE (streak, tempo/páginas/questões por
+   dia, histórico de sessões) - e só pra essas - um estudo feito depois da meia-noite mas antes
+   das 4h da manhã ainda conta como o dia anterior ("corte do dia" às 4h, não à meia-noite).
+   diaEstudoDe() é a única função que aplica essa regra; dataLocalDe()/todayStr() continuam
+   representando o dia-calendário real e seguem sendo usados sem alteração em tudo que É
+   agendamento (studiedDate, lastReview, nextReview, reviewHistory, ciclo/semana, metas) -
+   decisão explícita do Bruno de NÃO misturar os dois conceitos de "dia" no motor de revisão
+   espaçada, que já tem regra fina demais pra correr esse risco. */
+function diaEstudoDe(ms){
+  const d = new Date(ms);
+  return d.getHours()<4 ? addDays(dataLocalDe(ms), -1) : dataLocalDe(ms);
+}
+function diaEstudoAtual(){ return diaEstudoDe(Date.now()); }
 function key(si,ai){ return si+"|"+ai; }
 function getAula(si,ai){
   const k = key(si,ai);
@@ -3861,7 +3874,7 @@ function setPagesRead(si, ai, newVal, opts){
   // pagesRead/studied/agendamento de revisao valem igual, so o RITMO (paginas/dia) nao e
   // distorcido por uma marcacao em lote muito mais rapida que leitura real.
   if(delta!==0){
-    state.pageEvents.push({ id: uid(), si, ai, d: todayStr(), delta, at: Date.now(), catchUp: !!opts.catchUp });
+    state.pageEvents.push({ id: uid(), si, ai, d: diaEstudoAtual(), delta, at: Date.now(), catchUp: !!opts.catchUp });
   }
   const acabouDeConcluirTeoria = newVal>=theory && !rec.studied;
   if(acabouDeConcluirTeoria){
@@ -3935,7 +3948,7 @@ function _paginasPorDiaMap(){
 function _diasComAtividadeSet(){
   if(_metricasDiasCache && _metricasDiasCacheV===_metricasVersion) return _metricasDiasCache;
   const set = new Set();
-  state.sessions.forEach(s=> set.add(dataLocalDe(s.timestampFim)));
+  state.sessions.forEach(s=> set.add(diaEstudoDe(s.timestampFim)));
   Object.keys(_paginasPorDiaMap()).forEach(d=>{ if(_paginasPorDiaMap()[d]>0) set.add(d); });
   (state.answerLog||[]).forEach(a=> set.add(a.d));
   Object.values(state.aulas||{}).forEach(rec=> (rec.reviewHistory||[]).forEach(h=> set.add(h.d)));
@@ -3947,15 +3960,15 @@ function _diasComAtividadeSet(){
 const Metricas = {
   // ---- PAGINAS ----
   paginasNoDia(iso){ return _paginasPorDiaMap()[iso] || 0; },
-  paginasHoje(){ return this.paginasNoDia(todayStr()); },
+  paginasHoje(){ return this.paginasNoDia(diaEstudoAtual()); },
   paginasNaJanela(diasJanela){
-    const hoje = todayStr();
+    const hoje = diaEstudoAtual();
     let soma = 0;
     for(let i=0;i<diasJanela;i++) soma += this.paginasNoDia(addDays(hoje,-i));
     return soma;
   },
   // ---- TEMPO (sessions ja e fonte solida - so centraliza o acesso) ----
-  sessoesNoDia(iso){ return state.sessions.filter(s=> dataLocalDe(s.timestampFim)===iso); },
+  sessoesNoDia(iso){ return state.sessions.filter(s=> diaEstudoDe(s.timestampFim)===iso); },
   tempoNoDia(iso){ return sumTempo(this.sessoesNoDia(iso)); },
   // ---- QUESTOES ----
   // 26/08/2026: sem banco de questões, `state.answerLog` (só alimentado pelo quiz automático)
@@ -3965,14 +3978,14 @@ const Metricas = {
   // motivo de paginasNoDia: é um registro de atividade do dia, não um recorte do plano atual.
   questoesNoDia(iso){
     return state.sessions
-      .filter(s=> s.tipo==='questoes' && dataLocalDe(s.timestampFim)===iso)
+      .filter(s=> s.tipo==='questoes' && diaEstudoDe(s.timestampFim)===iso)
       .reduce((sum,s)=> sum + questoesRespondidasNaSessao(s), 0);
   },
   // ---- ATIVIDADE / STREAK ----
   diaTemAtividade(iso){ return _diasComAtividadeSet().has(iso); },
   streakAtual(){
     const dias = _diasComAtividadeSet();
-    let d = todayStr(), n = 0;
+    let d = diaEstudoAtual(), n = 0;
     while(dias.has(d)){ n++; d = addDays(d,-1); }
     return n;
   },
@@ -3998,9 +4011,9 @@ const Metricas = {
     diasJanela = diasJanela>0 ? diasJanela : 30;
     const diasReais = diasDesdeInicioPlanejamento();
     const divisor = diasReais!=null ? Math.min(diasJanela, diasReais) : diasJanela;
-    const corte = addDays(todayStr(), -(divisor-1));
+    const corte = addDays(diaEstudoAtual(), -(divisor-1));
     const qtd = state.sessions
-      .filter(s=> s.tipo==='questoes' && dataLocalDe(s.timestampFim)>=corte)
+      .filter(s=> s.tipo==='questoes' && diaEstudoDe(s.timestampFim)>=corte)
       .reduce((sum,s)=> sum + questoesRespondidasNaSessao(s), 0);
     return qtd/divisor;
   },
@@ -4405,14 +4418,14 @@ function tempoTotalApostila(si,ai, sessions){ return tempoTotalTeoriaApostila(si
 // Usado pelo seletor inline de periodo do widget "Tempo total" no Painel.
 function sessionsNoPeriodo(periodo){
   if(!periodo || periodo==='total') return state.sessions;
-  const today = todayStr();
+  const today = diaEstudoAtual();
   let inicio;
   if(periodo==='hoje') inicio = today;
   else if(periodo==='semana') inicio = segundaFeiraDe(today); // semana civil (seg-dom), reinicia toda 2a - nao rolling 7d
   else if(periodo==='mes') inicio = addDays(today, -29);
   else return state.sessions;
   return state.sessions.filter(s=>{
-    const d = dataLocalDe(s.timestampFim);
+    const d = diaEstudoDe(s.timestampFim);
     return d>=inicio && d<=today;
   });
 }
@@ -4450,7 +4463,7 @@ function consistencia(diasPeriodo){
   // ANTERIORES ao inicio do planejamento - ver diasDesdeInicioPlanejamento().
   const diasReais = diasDesdeInicioPlanejamento();
   if(diasReais!=null) diasPeriodo = Math.min(diasPeriodo, diasReais);
-  const today = todayStr();
+  const today = diaEstudoAtual();
   let diasComSessao=0, tempoTotal=0;
   // 19/08/2026 (decisao do Bruno): "dia estudado" aqui usa a MESMA definicao do streak/calendario
   // (Metricas.diaTemAtividade - qualquer atividade real: sessao, pagina, questao, revisao ou
@@ -4470,12 +4483,12 @@ function consistencia(diasPeriodo){
   };
 }
 function sessionsInWindow(tipo, days, offsetDays){
-  const end = addDays(todayStr(), -offsetDays);
+  const end = addDays(diaEstudoAtual(), -offsetDays);
   const start = addDays(end, -(days-1));
   return state.sessions.filter(s=>{
     if(s.tipo!==tipo) return false;
     if(!isSubjectActive(s.materiaIdx)) return false;
-    const d = dataLocalDe(s.timestampFim);
+    const d = diaEstudoDe(s.timestampFim);
     return d>=start && d<=end;
   });
 }
@@ -4517,10 +4530,10 @@ function answerLogInWindow(si, days, offsetDays){
 // dentro da janela de data (mesmo campo timestampFim/dataLocalDe usado em todo o resto do app
 // pra "em que dia essa sessão aconteceu").
 function questoesManualNaJanela(si, days, offsetDays){
-  const end = addDays(todayStr(), -offsetDays);
+  const end = addDays(diaEstudoAtual(), -offsetDays);
   const start = addDays(end, -(days-1));
   return state.sessions.filter(s=> s.tipo==='questoes' && s.materiaIdx===si &&
-    dataLocalDe(s.timestampFim)>=start && dataLocalDe(s.timestampFim)<=end);
+    diaEstudoDe(s.timestampFim)>=start && diaEstudoDe(s.timestampFim)<=end);
 }
 function taxaAcertoJanela(si, days, offsetDays){
   const sessions = questoesManualNaJanela(si, days, offsetDays);
@@ -6689,7 +6702,7 @@ const ESTUDO_DIA_TETO_SEGUNDOS = 4*3600;
 function buildEstudoSemanalHtml(modo, numDias){
   numDias = Math.max(1, parseInt(numDias,10)||7);
   const dias = [];
-  for(let i=numDias-1;i>=0;i--) dias.push(addDays(todayStr(), -i));
+  for(let i=numDias-1;i>=0;i--) dias.push(addDays(diaEstudoAtual(), -i));
   const diaNomes = ['dom','seg','ter','qua','qui','sex','sáb'];
   const valores = dias.map(d=> modo==='questoes' ? Metricas.questoesNoDia(d) : Metricas.tempoNoDia(d));
   const teto = modo==='questoes' ? Math.max(1, ...valores) : ESTUDO_DIA_TETO_SEGUNDOS;
@@ -10909,7 +10922,7 @@ function renderTempoHistorico(){
   document.getElementById('tempoHistCount').textContent = '('+state.sessions.length+')';
   const histWrap = document.getElementById('tempoHistorico');
   const lista = tempoHistFiltroDia
-    ? state.sessions.filter(s=> dataLocalDe(s.timestampFim)===tempoHistFiltroDia)
+    ? state.sessions.filter(s=> diaEstudoDe(s.timestampFim)===tempoHistFiltroDia)
     : state.sessions.slice().sort((a,b)=>b.timestampFim-a.timestampFim).slice(0,30);
   if(lista.length===0){
     histWrap.innerHTML = tempoHistFiltroDia
@@ -10918,9 +10931,9 @@ function renderTempoHistorico(){
     return;
   }
   const porDia = {};
-  lista.forEach(s=>{ const dia = dataLocalDe(s.timestampFim); (porDia[dia] = porDia[dia]||[]).push(s); });
+  lista.forEach(s=>{ const dia = diaEstudoDe(s.timestampFim); (porDia[dia] = porDia[dia]||[]).push(s); });
   const dias = Object.keys(porDia).sort((a,b)=> b.localeCompare(a)); // mais recente primeiro
-  const hojeIso = todayStr(), ontemIso = addDays(hojeIso,-1);
+  const hojeIso = diaEstudoAtual(), ontemIso = addDays(hojeIso,-1);
   const diaNomes = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
   histWrap.innerHTML = dias.map(dia=>{
     // dentro do dia, ordem cronológica (mais cedo primeiro) - lê como o dia foi vivido
