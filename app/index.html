@@ -2350,6 +2350,10 @@
       </div>
     </div>
 
+  </section>
+
+  <!-- REVISÕES -->
+  <section class="view" id="view-revisoes">
     <div id="revisaoResumo"></div>
     <div id="revisaoList"></div>
 
@@ -2394,9 +2398,17 @@
         <h2>Como funciona a revisão espaçada</h2>
         <div style="font-size:.82rem; color:var(--text-mut); line-height:1.55;">
           Ao concluir a leitura da teoria de uma apostila, o primeiro passo <b>não</b> é revisar: é <b>fazer os exercícios daquela apostila, em até 48 horas</b>. Essa etapa se fecha sozinha quando você responde todas as questões da aula — e só aí começa a contar a 1ª revisão.<br><br>
-          Depois vêm as <b>revisões espaçadas</b> (padrão <b>7</b> → <b>15</b> → <b>30 dias</b>, até 6 no total, editáveis por matéria em Ajustes) — cada intervalo conta a partir da <b>data de conclusão da apostila</b>, não uma a partir da outra. Concluída a última, a aula é considerada dominada e sai da fila. A avaliação <b>Difícil / Médio / Fácil</b> é apenas um registro do quanto você lembrou — ela <b>não altera</b> o intervalo nem a etapa. Serve para você reencontrar depois, em "Escolher o que revisar", tudo que achou difícil e reforçar manualmente quando quiser.
+          Depois vêm as <b>revisões espaçadas</b> (padrão <b>7</b> → <b>15</b> → <b>30 dias</b>, até 6 no total, editáveis por matéria logo abaixo) — cada intervalo conta a partir da <b>data de conclusão da apostila</b>, não uma a partir da outra. Concluída a última, a aula é considerada dominada e sai da fila. A avaliação <b>Difícil / Médio / Fácil</b> é apenas um registro do quanto você lembrou — ela <b>não altera</b> o intervalo nem a etapa. Serve para você reencontrar depois, em "Escolher o que revisar", tudo que achou difícil e reforçar manualmente quando quiser.
         </div>
       </div>
+    </details>
+
+    <!-- 13/09/2026 (pedido do Bruno, "aba Revisões com tudo sobre revisão"): movido de Ajustes
+         pra cá - configuracao pertence junto do resto do que e revisao, nao espalhado noutra aba. -->
+    <details class="card recolhivel">
+      <summary><h2>Intervalos de revisão por matéria <span id="tipIntervalosRevisao"></span></h2><span class="marcador" aria-hidden="true"></span></summary>
+      <div class="settings-sub" style="margin-top:0;">As revisões espaçadas de cada matéria (até 6), contadas a partir da data de conclusão da apostila — não uma a partir da outra. Ao alterar, as revisões já agendadas dessa matéria são recalculadas na hora. Deixe um campo em branco pra remover essa revisão e todas as seguintes. A etapa de exercícios (48h após a teoria) tem prazo fixo e não entra aqui.</div>
+      <div id="stagesEditor"></div>
     </details>
   </section>
 
@@ -2442,11 +2454,6 @@
         <div class="form-row"><label>Minutos de foco</label><input type="number" id="cfgPomodoroFocus" min="5" max="180" step="5"></div>
         <div class="form-row"><label>Minutos de intervalo</label><input type="number" id="cfgPomodoroBreak" min="5" max="60" step="5"></div>
       </div>
-    </div>
-    <div class="card">
-      <h2>Intervalos de revisão por matéria <span id="tipIntervalosRevisao"></span></h2>
-      <div class="settings-sub" style="margin-top:0;">As revisões espaçadas de cada matéria (até 6), contadas a partir da data de conclusão da apostila — não uma a partir da outra. Ao alterar, as revisões já agendadas dessa matéria são recalculadas na hora. Deixe um campo em branco pra remover essa revisão e todas as seguintes. A etapa de exercícios (48h após a teoria) tem prazo fixo e não entra aqui.</div>
-      <div id="stagesEditor"></div>
     </div>
     <div class="card" style="display:none;" id="installCard">
       <h2>Instalar app</h2>
@@ -2583,7 +2590,8 @@
   <div class="drawer-items">
   <button data-view="painel" class="active"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.2 12 4l8.5 7.2"/><path d="M5.5 9.8V19a1 1 0 0 0 1 1H9.5v-5.5h5V20h3a1 1 0 0 0 1-1V9.8"/></svg></span>Painel</button>
   <button data-view="materias"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.2c2.4-.9 5-.9 7.5.3v13c-2.5-1.2-5.1-1.2-7.5-.3z"/><path d="M20 5.2c-2.4-.9-5-.9-7.5.3v13c2.5-1.2 5.1-1.2 7.5-.3z"/></svg></span>Matérias</button>
-  <button data-view="planejamento"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.7" y="5" width="16.6" height="15" rx="2.2"/><path d="M3.7 9.7h16.6"/><path d="M8 3.3v3.6M16 3.3v3.6"/></svg><i class="tab-badge" id="revisaoBadge" hidden></i></span>Planejamento</button>
+  <button data-view="planejamento"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.7" y="5" width="16.6" height="15" rx="2.2"/><path d="M3.7 9.7h16.6"/><path d="M8 3.3v3.6M16 3.3v3.6"/></svg></span>Planejamento</button>
+  <button data-view="revisoes"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14.5-4.5"/><path d="M20 12a8 8 0 0 1-14.5 4.5"/><path d="M18.5 3v4.5H14"/><path d="M5.5 21v-4.5H10"/></svg><i class="tab-badge" id="revisaoBadge" hidden></i></span>Revisões</button>
   <button data-view="provas"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.2h8.2l4.3 4.3v13.3H6.5z"/><path d="M14.4 3.4v4.3h4.3"/><path d="M9.4 12.4h6.2M9.4 15.7h6.2"/></svg></span>Provas</button>
   <button type="button" data-view="ajustes" id="btnSettingsTab"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.2M12 18.3v2.2M20.5 12h-2.2M5.7 12H3.5M17.7 6.3l-1.6 1.6M7.9 16.1l-1.6 1.6M17.7 17.7l-1.6-1.6M7.9 7.9 6.3 6.3"/></svg></span>Ajustes</button>
   </div>
@@ -3905,7 +3913,7 @@ function setPagesRead(si, ai, newVal, opts){
 function avisoTeoriaConcluida(si, ai, rec){
   const banco = bankFor(si, ai);
   if(banco.length === 0){
-    toast("Teoria concluída — na aba Planejamento, diga quantas questões essa apostila tem, pra registrar seu progresso nos Exercícios (prazo 48h)");
+    toast("Teoria concluída — na aba Matérias, na aula, diga quantas questões essa apostila tem, pra registrar seu progresso nos Exercícios");
     return;
   }
   toast("Teoria concluída Próximo passo: fazer as "+banco.length+" questões desta apostila até "+fmtDate(rec.nextReview)+" (48h)");
@@ -5650,7 +5658,7 @@ const METRICS_CATALOG = [
   { id:'questoes_pendentes', categoria:'Questões', titulo:'Questões pendentes', niveis:['global','materia'], tamanho:'pequeno',
     tooltip:'Quantidade de questões que você já tentou pelo menos uma vez, mas ainda não acertou. É o seu "backlog" de revisão — o objetivo é fazer esse número diminuir até chegar perto de zero. Use o seletor "Geral / Por matéria" no próprio widget para alternar a visão.' },
   { id:'revisoes_pendentes', categoria:'Questões', titulo:'Revisões pendentes', niveis:['global','materia'], tamanho:'pequeno',
-    tooltip:'Quantas aulas estão com revisão espaçada vencida — ou seja, atrasadas ou marcadas para hoje. Quando está zerado, o widget mostra a data da próxima revisão agendada. A fila completa, com calendário e agenda, fica na aba Planejamento.' },
+    tooltip:'Quantas aulas estão com revisão espaçada vencida — ou seja, atrasadas ou marcadas para hoje. Quando está zerado, o widget mostra a data da próxima revisão agendada. A fila completa, com calendário e agenda, fica na aba Revisões.' },
 
   { id:'tempo_total', categoria:'Tempo', titulo:'Tempo total estudado',
     modos:[{id:'teoria',label:'Teoria'},{id:'questoes',label:'Questões'},{id:'consolidado',label:'Consolidado'},{id:'simulados',label:'Simulados'}],
@@ -6207,7 +6215,8 @@ const VIEW_TITLES = {
   painel:       { label:'Painel', desc:'Acompanhamento de apostilas e questões.' },
   materias:     { label:'Matérias', desc:'Suas apostilas, aula por aula, com o progresso de leitura de cada uma.' },
   questoes:     { label:'Questões', desc:'Pratique por matéria, por apostila ou todas as questões juntas.' },
-  planejamento: { label:'Planejamento', desc:'Metas, ciclo de estudos e revisão espaçada, tudo num só lugar.' },
+  planejamento: { label:'Planejamento', desc:'Metas, ciclo de estudos e calendário da semana.' },
+  revisoes:     { label:'Revisões', desc:'Fila de revisão espaçada, calendário, repositório e questões erradas.' },
   provas:       { label:'Provas anteriores', desc:'Cadernos oficiais da CESGRANRIO, prova inteira ou por matéria.' },
   ajustes:      { label:'Ajustes', desc:'Aparência, sessão de estudo, dados, sincronização e ajuda.' },
 };
@@ -7595,8 +7604,8 @@ function renderMateriaDetalhe(si, filter){
     ()=> startQuiz(corretas, s.name+' · Corretas', 'review'));
   addAcao(`<svg class=ic-svg aria-hidden=true><use href=#ic-star-fill></use></svg> Favoritas (${favs.length})`, favs.length===0,
     ()=> startQuiz(favs, s.name+' · Favoritos'));
-  addAcao(`<svg class=ic-svg aria-hidden=true><use href=#ic-refazer></use></svg> Ver revisões/ciclo (${revs.length})`, false, ()=>{
-    document.querySelector('.drawer-items button[data-view="planejamento"]').click();
+  addAcao(`<svg class=ic-svg aria-hidden=true><use href=#ic-refazer></use></svg> Ver revisões (${revs.length})`, false, ()=>{
+    document.querySelector('.drawer-items button[data-view="revisoes"]').click();
   });
 
   renderAulasDaMateria(si, filter);
