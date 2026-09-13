@@ -2291,10 +2291,10 @@
         <summary><h2>Estudado fora do planejado</h2><span class="marcador" aria-hidden="true"></span></summary>
         <div id="cicloExcedenteWrap"></div>
       </details>
-      <div class="card">
-        <h2 style="margin:0 0 12px;">Histórico de ciclos</h2>
+      <details class="card recolhivel">
+        <summary><h2>Histórico de ciclos</h2><span class="marcador" aria-hidden="true"></span></summary>
         <div id="cicloHistorico"></div>
-      </div>
+      </details>
     </div>
 
     <div class="streak-box">
@@ -4863,9 +4863,18 @@ function cicloEstudadoDentroPlanoTotalSegundos(){
    do Bruno) - o peso agora vem só do que está pendente agora, recalculado toda semana (ver
    pesoSugerido/recalcularPesosCiclo). Só ciclos fechados a partir de agora entram nesse
    histórico — não há como reconstituir os ciclos anteriores, que não eram logados. */
+// 13/09/2026 (bug reportado pelo Bruno, "tem ciclos repetidos"): quando o fechamento automatico
+// (checkCicloCompletion) e outro fechamento manual (recomecarCiclo/atualizarCicloSemanaManual)
+// disparavam colados um no outro - tipico numa virada de semana, quando o ciclo bate 100% bem
+// na hora em que "Atualizar ciclo pra esta semana" tambem aparece - o segundo fechamento nao
+// tinha mais nenhuma sessao nova pra fechar (fimTs<=cicloStartedAt), mas registrava um "ciclo"
+// fantasma mesmo assim: inicio===fim, 0 segundos estudados, mesmo % de dominio de instantes
+// atras. Guard aqui (no lugar unico onde todo fechamento passa) evita criar historico pra um
+// ciclo que nunca teve conteudo - fimTs precisa ser estritamente depois de cicloStartedAt.
 function registrarHistoricoCiclo(fimTs, completo){
   const c = state.ciclo;
   if(!c) return null;
+  if(fimTs<=c.cicloStartedAt) return null;
   if(!Array.isArray(state.historicoCiclos)) state.historicoCiclos = [];
   const desvios = {};
   const atrasadas = [];
