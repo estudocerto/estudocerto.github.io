@@ -4222,6 +4222,17 @@ function sumTempo(sessions){ return sessions.reduce((s,x)=>s+x.tempoLiquidoSegun
 // excluida (ver isSubjectActive) nao entra nesses agregados gerais, so nas metricas de uma
 // materia especifica (tempoTotalTeoriaMateria/Apostila, que nao filtram por ativa de proposito).
 function tempoTotalTeoria(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='teoria' && isSubjectActive(s.materiaIdx))); }
+// 17/09/2026 (pedido do Bruno, bug reportado - "Tempo total estudado" da Semana nao batia com
+// a soma das barras de "Estudo por dia"): a barra diaria (Metricas.tempoNoDia, ver comentario
+// la) e Consistencia/streak ja tratam tempo estudado como "registro de atividade", sem filtrar
+// materia ativa - so "Tempo total estudado" filtrava, escondendo silenciosamente sessoes de
+// materias tiradas do ciclo do proprio total que se anuncia como "todas as materias". Essas
+// variantes _Todas existem so pro widget "Tempo total" no nivel Geral, pra ele bater com o
+// resto do Painel; tempoTotalTeoria/Questoes/Revisao (sem sufixo) continuam filtrando por
+// materia ativa, porque alimentam contas que dependem disso (ex.: ritmoResolucaoGlobal, cujo
+// denominador ja so conta materias ativas, e distribuicaoTempoPorMateria, cujo total precisa
+// bater com a soma so das fatias ativas do donut).
+function tempoTotalTeoriaTodas(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='teoria')); }
 function tempoTotalTeoriaMateria(si, sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='teoria' && s.materiaIdx===si)); }
 function tempoTotalTeoriaApostila(si,ai, sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='teoria' && s.materiaIdx===si && s.apostilaIdx===ai)); }
 // 19/08/2026 (decisao do Bruno, "repositorio unico de metricas"): ritmo de leitura usava um
@@ -4282,6 +4293,7 @@ function questoesRespondidasNaSessao(s){
   return 0;
 }
 function tempoTotalQuestoes(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='questoes' && isSubjectActive(s.materiaIdx))); }
+function tempoTotalQuestoesTodas(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='questoes')); }
 function tempoTotalQuestoesMateria(si, sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='questoes' && s.materiaIdx===si)); }
 function tempoTotalQuestoesApostila(si,ai, sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='questoes' && s.materiaIdx===si && s.apostilaIdx===ai)); }
 
@@ -4290,6 +4302,7 @@ function tempoTotalQuestoesApostila(si,ai, sessions){ return sumTempo((sessions|
    entram em tempoTotalTeoria nem em tempoTotalQuestoes - tem as suas proprias funcoes -
    mas entram no consolidado (tempoTotalGeral) e nas horas da materia dentro do ciclo. */
 function tempoTotalRevisao(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='revisao' && isSubjectActive(s.materiaIdx))); }
+function tempoTotalRevisaoTodas(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='revisao')); }
 function tempoTotalRevisaoMateria(si, sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='revisao' && s.materiaIdx===si)); }
 function tempoTotalRevisaoApostila(si,ai, sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='revisao' && s.materiaIdx===si && s.apostilaIdx===ai)); }
 function questoesRespondidasApostila(si,ai){ // conta tentativas registradas em sessoes (nao distintas)
@@ -4365,6 +4378,7 @@ function tempoRestanteTotalQuestoes(){
 /* ===================== MÉTRICAS ANALÍTICAS ===================== */
 function tempoTotalMateria(si, sessions){ return tempoTotalTeoriaMateria(si,sessions)+tempoTotalQuestoesMateria(si,sessions)+tempoTotalRevisaoMateria(si,sessions); }
 function tempoTotalGeral(sessions){ return tempoTotalTeoria(sessions)+tempoTotalQuestoes(sessions)+tempoTotalRevisao(sessions); }
+function tempoTotalGeralTodas(sessions){ return tempoTotalTeoriaTodas(sessions)+tempoTotalQuestoesTodas(sessions)+tempoTotalRevisaoTodas(sessions); }
 // Tempo gasto em simulados (provas completas, ver seção PROVAS/SIMULADOS). Fica de fora
 // de tempoTotalGeral() de propósito - não é "Teoria" nem "Questões" do ciclo de estudos,
 // então não deve contar pro progresso da meta semanal nem ser deduzido dela. Mora só no
@@ -6897,7 +6911,10 @@ function computeWidgetValue(metricId, modo, nivel, scope, periodo){
       let v;
       if(nivel==='apostila') v = modo==='teoria'? tempoTotalTeoriaApostila(si,ai,sessions) : modo==='questoes'? tempoTotalQuestoesApostila(si,ai,sessions) : tempoTotalApostila(si,ai,sessions);
       else if(nivel==='materia') v = tempoTotalMateriaPorModo(si, modo, sessions);
-      else v = modo==='teoria'? tempoTotalTeoria(sessions) : modo==='questoes'? tempoTotalQuestoes(sessions) : tempoTotalGeral(sessions);
+      // nivel global usa as variantes _Todas (sem filtro de materia ativa) - ver comentario
+      // em tempoTotalTeoriaTodas: esse widget se anuncia como "todas as materias", entao deve
+      // bater com a soma das barras de "Estudo por dia" mesmo havendo materia fora do ciclo.
+      else v = modo==='teoria'? tempoTotalTeoriaTodas(sessions) : modo==='questoes'? tempoTotalQuestoesTodas(sessions) : tempoTotalGeralTodas(sessions);
       return { value: fmtDuracao(v), sub: subComPeriodo };
     }
     case 'tempo_restante': {
