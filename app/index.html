@@ -1090,10 +1090,6 @@
      esquerda com um respiro pequeno entre os dois - antes ficavam nas pontas opostas da linha. */
   .cal-atividade-datas{display:flex; gap:14px; margin-bottom:12px;}
   .cal-atividade-datas input{width:auto;}
-  .streak-box{display:flex; align-items:center; gap:14px; background:var(--yellow); border-radius:14px; padding:14px 16px; margin-bottom:16px;}
-  .streak-box .flame{font-size:1.9rem;}
-  .streak-box b{font-size:1.4rem; font-weight:800; color:#6b5200;}
-  .streak-box span{font-size:.76rem; color:#6b5200;}
   .data-btns{display:flex; gap:10px; flex-wrap:wrap;}
   .sync-fields{display:flex; flex-direction:column; gap:8px; margin:10px 0;}
   .sync-input{width:100%; box-sizing:border-box; padding:9px 10px; border-radius:8px; border:1px solid var(--border); font-size:.82rem; background:var(--bg); color:var(--text);}
@@ -1618,7 +1614,7 @@
     clip-path:inset(0 calc(100% - var(--dom, 0%)) 0 0);
     transition:clip-path 220ms cubic-bezier(.16,1,.3,1);
   }
-  .regua-dom .marca{fill:var(--yellow); opacity:.82;}
+  .regua-dom .marca{fill:var(--green); opacity:.82;}
   .regua-dom .marca.densa{opacity:1;}
   .regua-dom.vazia{height:12px;}
 
@@ -1898,6 +1894,7 @@
   .ciclo-peso-row .nm{flex:1; font-size:.8rem; display:flex; flex-direction:column; gap:1px;}
   .ciclo-peso-row .nm small{color:var(--text-mut); font-size:.66rem; font-weight:650; text-transform:uppercase; letter-spacing:.02em;}
   .ciclo-peso-row .replan-peso{width:56px; padding:6px; border-radius:8px; border:1px solid var(--border); text-align:center; font-weight:700; flex:0 0 auto;}
+  .ciclo-peso-row .replan-peso-hint{flex:0 0 auto; width:82px; font-size:.68rem; font-weight:650; color:var(--text-mut); white-space:nowrap; text-align:right;}
   .ciclo-peso-row .replan-reset-peso{flex:0 0 auto; width:28px; height:28px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text-mut); cursor:pointer; font-size:.85rem;}
   .ciclo-peso-row .replan-reset-peso:hover{color:var(--green-dark); border-color:var(--green);}
 
@@ -2109,35 +2106,14 @@
         <div id="tempoActiveInfo"></div>
       </div>
 
-      <div class="card">
-        <h2>Resumo geral</h2>
-        <div class="stat-row" id="tempoResumoRow"></div>
-      </div>
-
-      <div class="card">
-        <h2>Estimativas de tempo restante</h2>
-        <div class="stat-row" id="tempoEstimativasRow"></div>
-      </div>
-
-      <div class="card">
-        <h2>Distribuição do tempo por matéria</h2>
-        <div id="tempoDistribuicao"></div>
-        <div class="empty" style="padding:10px 0 0; text-align:left;">O peso de cada matéria (usado para montar o Ciclo de Estudos) agora é configurado na aba <b>Planejamento</b>, em "Replanejar".</div>
-      </div>
-
-      <div class="card">
-        <h2>Consistência <span id="tipConsistencia"></span></h2>
-        <div id="tempoConsistencia"></div>
-      </div>
-
-      <!-- 26/08/2026 (simplificação de IA): os widgets mais analíticos ficam escondidos por
-           padrão no modo simples (toggle em Ajustes) - ver applyModoSimples. -->
+      <!-- 17/09/2026 (pedido do Bruno): Resumo geral, Estimativas de tempo restante,
+           Distribuição do tempo por matéria, Consistência e Tendência de ritmo saíram daqui -
+           hoje são widgets de verdade no Painel (tempo_total/tempo_restante/distribuicao_tempo/
+           consistencia/tendencia_ritmo no METRICS_CATALOG), então mostrar tudo de novo aqui
+           dentro era duplicar a mesma informação duas vezes na mesma tela. Análise de
+           desempenho por matéria FICOU (não existe como widget do Painel ainda) - ver
+           #painelAvancado, escondido no modo simples igual antes. -->
       <div id="painelAvancado">
-        <div class="card">
-          <h2>Tendência de ritmo <span id="tipTendencia"></span></h2>
-          <div id="tempoTendencia"></div>
-        </div>
-
         <div class="card">
           <h2>Análise de desempenho por matéria <span id="tipAnaliseDesempenho"></span></h2>
           <div id="tempoDesvioChart"></div>
@@ -2295,14 +2271,6 @@
         <summary><h2>Histórico de ciclos</h2><span class="marcador" aria-hidden="true"></span></summary>
         <div id="cicloHistorico"></div>
       </details>
-    </div>
-
-    <div class="streak-box">
-      <div class="flame"></div>
-      <div>
-        <b id="streakBig">0 dias</b>
-        <div><span>de estudo consecutivo</span></div>
-      </div>
     </div>
 
     <div class="card">
@@ -5658,12 +5626,12 @@ function formatarIntervaloSemana(segundaStr){
 // uma entrada separada no catálogo (e no picker de "+ Adicionar métrica") para cada combinação.
 const NIVEL_LABELS = { global:'Geral', materia:'Por matéria', apostila:'Por apostila', lista:'Todas as matérias' };
 const METRICS_CATALOG = [
-  { id:'taxa_dominio', categoria:'Questões', titulo:'Taxa de Domínio', niveis:['global','materia'], tamanho:'pequeno',
-    tooltip:'Percentual do total de questões cadastradas no banco (não só as que você já tentou) que você já sabe resolver corretamente, considerando a situação mais recente de cada uma. Assim que você acerta uma questão pela primeira vez, ela passa a contar como "dominada" e não volta a pesar contra você, mesmo que tenha errado antes — por isso essa métrica só sobe (ou fica igual) com o tempo. Questões que você ainda nem tentou contam contra o percentual, do mesmo jeito que as que você errou — assim o número reflete quanto da matéria você realmente já domina, não só seu desempenho nas questões que escolheu tentar. Use o seletor "Geral / Por matéria" no próprio widget para alternar a visão.' },
+  { id:'taxa_dominio', categoria:'Questões', titulo:'Percentual de Acerto', niveis:['global','materia'], tamanho:'pequeno',
+    tooltip:'Percentual de acerto nas questões que você registrou (certas ÷ feitas), por matéria ou somando todas. Sem banco de questões automático, esse número pode subir ou descer conforme você registra novas sessões — não é um contador que só cresce.' },
   { id:'taxa_primeira_tentativa', categoria:'Questões', titulo:'Taxa na 1ª Tentativa', niveis:['global'], tamanho:'pequeno',
     tooltip:'Percentual de questões que você acertou já na primeira vez que resolveu, sem contar as revisões. Mostra o quanto você está absorvendo bem o conteúdo novo, sem o efeito de "decorar a resposta" por repetir a mesma questão várias vezes.' },
   { id:'taxa_geral_tentativa', categoria:'Questões', titulo:'Taxa geral por tentativa', niveis:['global'], tamanho:'pequeno',
-    tooltip:'Percentual de acertos somando todas as tentativas, inclusive as repetidas. Não é recomendada como indicador de evolução: como você só revisa questões que errou, esse número tende a cair mesmo quando você está melhorando de verdade. Use a Taxa de Domínio para medir progresso.' },
+    tooltip:'Percentual de acertos somando todas as tentativas, inclusive as repetidas. Não é recomendada como indicador de evolução: como você só revisa questões que errou, esse número tende a cair mesmo quando você está melhorando de verdade. Use o Percentual de Acerto para medir progresso.' },
   { id:'questoes_pendentes', categoria:'Questões', titulo:'Questões pendentes', niveis:['global','materia'], tamanho:'pequeno',
     tooltip:'Quantidade de questões que você já tentou pelo menos uma vez, mas ainda não acertou. É o seu "backlog" de revisão — o objetivo é fazer esse número diminuir até chegar perto de zero. Use o seletor "Geral / Por matéria" no próprio widget para alternar a visão.' },
   { id:'revisoes_pendentes', categoria:'Questões', titulo:'Revisões pendentes', niveis:['global','materia'], tamanho:'pequeno',
@@ -5703,9 +5671,9 @@ const METRICS_CATALOG = [
   { id:'paginas_lidas', categoria:'Progresso', titulo:'Páginas de teoria lidas (total)', niveis:['global'], tamanho:'pequeno',
     tooltip:'Quantidade de páginas de teoria que você já leu, em relação ao total de páginas de teoria cadastradas em todas as apostilas.' },
   { id:'questoes_feitas', categoria:'Progresso', titulo:'Questões respondidas (total)', niveis:['global'], tamanho:'pequeno',
-    tooltip:'Quantidade de questões distintas que você já tentou responder ao menos uma vez, em relação ao total de questões cadastradas no banco (contando só as matérias ativas no ciclo). Diferente da Taxa de Domínio: aqui conta como "feita" mesmo que você tenha errado — é uma medida de cobertura, não de acerto.' },
-  { id:'ranking_materia', categoria:'Progresso', titulo:'Ranking por matéria (Taxa de Domínio)', niveis:['global'], tamanho:'grande',
-    tooltip:'Lista suas matérias ordenadas pela Taxa de Domínio (dominadas ÷ total de questões do banco de cada matéria, não só as já tentadas), da que você mais domina para a que você menos domina — ajuda a enxergar rapidamente onde focar. Matérias com poucas questões respondidas ainda aparecem com percentual baixo, o que é esperado.' },
+    tooltip:'Quantidade de questões distintas que você já tentou responder ao menos uma vez, em relação ao total de questões cadastradas no banco (contando só as matérias ativas no ciclo). Diferente do Percentual de Acerto: aqui conta como "feita" mesmo que você tenha errado — é uma medida de cobertura, não de acerto.' },
+  { id:'ranking_materia', categoria:'Progresso', titulo:'Ranking por matéria (Percentual de Acerto)', niveis:['global'], tamanho:'grande',
+    tooltip:'Lista suas matérias ordenadas pelo percentual de acerto (certas ÷ feitas), da que você mais acerta para a que você menos acerta — ajuda a enxergar rapidamente onde focar. Matérias com poucas questões respondidas ainda aparecem com percentual pouco confiável, o que é esperado.' },
   { id:'progresso_materias', categoria:'Progresso', titulo:'Progresso de leitura por matéria', niveis:['global'], tamanho:'grande',
     tooltip:'Mostra, para cada matéria, o percentual de páginas de teoria já lidas em relação ao total de páginas daquela matéria, com uma linha de total ao final somando todas as matérias.' },
 ];
@@ -5717,7 +5685,7 @@ function nivelLabel(n){ return NIVEL_LABELS[n] || n; }
 const EXTRA_TIPS = {
   peso_ciclo_sugerido: {
     titulo: 'Como o peso sugerido é calculado',
-    tooltip: 'O peso sugerido de cada matéria é proporcional ao tempo que falta pra terminar de ler a teoria dela (páginas restantes ÷ seu ritmo de leitura naquela matéria). Assim, uma matéria com o dobro do tempo restante de outra recebe o dobro do peso — e, dentro do ciclo, o dobro das horas semanais. O efeito matemático: seguindo o ciclo à risca, todas as matérias ativas tendem a terminar a teoria perto da mesma data, em vez de uma ficar pra trás — veja "Ritmo até a data alvo", no card do Ciclo, pra comparar com a data que você escolheu em Metas. Sem sessões suficientes ainda para calcular um ritmo, o app usa uma estimativa genérica baseada só nas páginas restantes. Esse peso sugerido é recalculado e travado uma vez no início de cada rodada do ciclo (e não muda sozinho enquanto ela estiver em andamento, mesmo que o tempo restante mude) — assim a meta de cada matéria fica estável até a rodada fechar. Você pode sobrescrever o valor sugerido a qualquer momento digitando o seu próprio peso — nesse caso ele fica fixo até a PRÓXIMA vez que você apertar "Atualizar ciclo pra esta semana" ou clicar em "usar sugestão" pra essa matéria: aí ele é recalculado do zero a partir do que está pendente naquele momento. O tempo semanal que esse peso vira dentro do ciclo tem piso de 30min por matéria e sempre fecha em múltiplos de 15min (30min, 45min, 1h, 1h15…) — nunca uma fração como "37min".'
+    tooltip: 'O peso sugerido de cada matéria é proporcional ao tempo que falta pra terminar de ler a teoria dela (páginas restantes ÷ seu ritmo de leitura naquela matéria). Assim, uma matéria com o dobro do tempo restante de outra recebe o dobro do peso — e, dentro do ciclo, o dobro das horas semanais. O efeito matemático: seguindo o ciclo à risca, todas as matérias ativas tendem a terminar a teoria perto da mesma data, em vez de uma ficar pra trás — veja "Ritmo até a data alvo", no card do Ciclo, pra comparar com a data que você escolheu em Metas. Sem sessões suficientes ainda para calcular um ritmo, o app usa uma estimativa genérica baseada só nas páginas restantes. Esse peso sugerido é recalculado e travado uma vez no início de cada rodada do ciclo (e não muda sozinho enquanto ela estiver em andamento, mesmo que o tempo restante mude) — assim a meta de cada matéria fica estável até a rodada fechar. Você pode sobrescrever o valor sugerido a qualquer momento digitando o seu próprio peso — nesse caso ele fica fixo até a PRÓXIMA vez que você apertar "Atualizar ciclo pra esta semana" ou clicar em "usar sugestão" pra essa matéria: aí ele é recalculado do zero a partir do que está pendente naquele momento. O tempo semanal que esse peso vira dentro do ciclo tem piso de 30min por matéria e sempre fecha em múltiplos de 15min (30min, 45min, 1h, 1h15…) — nunca uma fração como "37min". Prefere pensar em peso como prioridade relativa, não como carga pendente? O botão "Pesos iguais (1 pra cada)" zera todo mundo pro mesmo peso (divisão igual do ciclo) — dali, suba o peso só das matérias que quiser priorizar (peso 2 = o dobro do tempo de uma peso 1). Cada linha mostra ao vivo, em "→ Xh", quantas horas aquele peso representa antes mesmo de salvar.'
   },
   meta_data_alvo: {
     titulo: 'Meta por data alvo',
@@ -5754,7 +5722,7 @@ const TUTORIAIS = [
   { titulo:'Como funciona o Ciclo de Estudos', texto:'Você define quantas horas quer estudar por semana; o app sugere um peso pra cada matéria com base no que falta ler, e monta uma sequência que se repete. Ao completar a sequência inteira, um novo ciclo começa. Ajuste os pesos e quais matérias entram a qualquer momento em Ciclo → Replanejar. O Calendário da semana (mesma aba) mostra essa meta já dividida em blocos de 30min pelos 7 dias, que você pode arrastar pra reorganizar.' },
   { titulo:'Como funciona a Revisão espaçada', texto:'Ao concluir a teoria de uma apostila, a primeira tarefa é fazer os exercícios dela, em até 48 horas — essa etapa se fecha sozinha quando você responde todas as questões da aula. Só então entram as 3 revisões espaçadas (padrão 7 → 15 → 30 dias), e o app já mostra todas as datas previstas no calendário. A avaliação Difícil / Médio / Fácil é só um registro: não muda o intervalo. Em "Escolher o que revisar" você filtra pelas aulas que marcou como difíceis e revisa manualmente quando quiser. Os intervalos podem ser personalizados por matéria — ao mudar, as datas já agendadas são recalculadas na hora.' },
   { titulo:'Refazer erradas x Favoritos', texto:'Refazer junta automaticamente toda questão que você já errou e ainda não domina — sai da lista sozinha quando você acerta. Favoritos é uma lista manual: você escolhe (<svg class=ic-svg aria-hidden=true><use href=#ic-star></use></svg> durante o quiz) o que quer guardar pra rever depois, tenha acertado ou errado.' },
-  { titulo:'Taxa de Domínio x Taxa geral', texto:'Taxa de Domínio conta questões distintas: uma vez que você acerta, ela fica "dominada" pra sempre, mesmo que erre de novo depois — por isso só sobe, e é a melhor forma de acompanhar evolução real. A Taxa geral por tentativa soma todas as tentativas (inclusive repetidas) e pode cair mesmo você progredindo, porque você revisa mais as que errou.' },
+  { titulo:'Percentual de Acerto x Taxa geral', texto:'Percentual de Acerto soma certas ÷ feitas das sessões de questões que você registrou (pode subir ou descer, reflete seu desempenho atual). A Taxa geral por tentativa soma todas as tentativas já feitas alguma vez (inclusive repetidas) e tende a cair mesmo você progredindo, porque você revisa mais as que errou — por isso não é recomendada como indicador de evolução.' },
   { titulo:'Widgets do Painel', texto:'No Painel, toque em "Personalizar" pra adicionar, remover, reordenar (arrastar) e redimensionar os cards. O botão de tamanho (⋮) abre as opções de largura de cada widget. A cor de fundo dos widgets (claro/escuro) é configurada aqui em Ajustes → Aparência, independente do tema geral do app.' },
   { titulo:'Metas e sequência de estudo', texto:'Defina uma meta diária de páginas em Metas, e acompanhe sua sequência de dias seguidos estudando (streak). Também dá pra definir uma data alvo pra terminar a teoria restante — o app calcula o ritmo necessário em páginas/dia pra chegar lá no prazo.' },
 ];
@@ -6558,16 +6526,15 @@ function ensureTempoRestanteTrio(dash){
 // zere state.dashboard - ver excluirCiclo/reset de estudos.
 function ensureDashboard(){
   if(!state.dashboard){
+    // 17/09/2026 (pedido do Bruno, "o painel padrão deve ser [este]"): layout atualizado pra
+    // bater com o que ele realmente usa hoje - so vale pra instalacao nova/reset (Zerar
+    // progresso), nao mexe no dashboard de quem ja tem um customizado (ver o else abaixo).
     state.dashboard = { widgets: [
       { id: uid(), metricId:'tempo_restante', modo:'trio', periodo:null, scope:null, visivel:true, ordem:1, tamanho:'cheio' },
-      { id: uid(), metricId:'taxa_dominio', modo:null, scope:null, visivel:true, ordem:2 },
-      { id: uid(), metricId:'tempo_total', modo:'consolidado', periodo:'total', scope:null, visivel:true, ordem:3 },
-      { id: uid(), metricId:'estudo_semanal_grafico', modo:'tempo', periodo:'7', scope:null, visivel:true, ordem:4, tamanho:'terco' },
-      { id: uid(), metricId:'consistencia', modo:null, scope:null, visivel:true, ordem:5 },
-      { id: uid(), metricId:'distribuicao_tempo', modo:null, scope:null, visivel:true, ordem:6 },
-      { id: uid(), metricId:'paginas_lidas', modo:null, periodo:null, scope:null, visivel:true, ordem:7, tamanho:'metade' },
-      { id: uid(), metricId:'questoes_feitas', modo:null, periodo:null, scope:null, visivel:true, ordem:8, tamanho:'metade' },
-      { id: uid(), metricId:'progresso_materias', modo:null, periodo:null, scope:null, visivel:true, ordem:9, tamanho:'cheio' },
+      { id: uid(), metricId:'tempo_total', modo:'consolidado', periodo:'total', scope:null, visivel:true, ordem:2, tamanho:'metade' },
+      { id: uid(), metricId:'estudo_semanal_grafico', modo:'tempo', periodo:'30', scope:null, visivel:true, ordem:3, tamanho:'metade' },
+      { id: uid(), metricId:'consistencia', modo:null, scope:null, visivel:true, ordem:4, tamanho:'cheio' },
+      { id: uid(), metricId:'distribuicao_tempo', modo:null, scope:null, visivel:true, ordem:5, tamanho:'cheio' },
     ], _tempoRestanteTrioV2:true };
     save();
   } else {
@@ -6798,7 +6765,7 @@ function buildProgressoMateriasHtml(){
   const pctTotal = totalPages? Math.round(readPages/totalPages*100):0;
   const totalRow = `<div class="dist-row" style="border-top:1.5px solid var(--border); margin-top:4px; padding-top:10px;">
     <div class="nm" style="font-weight:800;">Total (todas as matérias)</div>
-    <div class="bar"><i style="width:${pctTotal}%; background:var(--yellow);"></i></div>
+    <div class="bar"><i style="width:${pctTotal}%;"></i></div>
     <div class="pct" style="font-weight:900;">${pctTotal}%</div>
   </div>`;
   return rows + totalRow;
@@ -8652,9 +8619,6 @@ function renderMetas(){
   document.getElementById('todayProgress').textContent = doneToday;
   const pct = Math.min(100, Math.round(doneToday/state.dailyGoal*100));
   document.getElementById('todayBar').style.width = pct+"%";
-
-  const streak = currentStreak();
-  document.getElementById('streakBig').textContent = streak+(streak===1?' dia':' dias');
 
   renderMetaDataAlvo();
   renderCalendarioAtividade();
@@ -10850,48 +10814,6 @@ function renderTempo(){
     activeCard.style.display = 'none';
   }
 
-  document.getElementById('tempoResumoRow').innerHTML = `
-    <div class="stat-box"><b>${fmtDuracao(tempoTotalTeoria())}</b><span>Teoria ${tipIcon('tempo_total')}</span></div>
-    <div class="stat-box"><b>${fmtDuracao(tempoTotalQuestoes())}</b><span>Questões ${tipIcon('tempo_total')}</span></div>
-    <div class="stat-box"><b>${fmtDuracao(tempoTotalSimulados())}</b><span>Simulados ${tipIcon('tempo_total')}</span></div>
-    <div class="stat-box"><b>${fmtDuracao(tempoTotalGeral())}</b><span>Total ${tipIcon('tempo_total')}</span></div>
-  `;
-
-  const restTeoria = tempoRestanteTotalTeoria(), restQuestoes = tempoRestanteTotalQuestoes();
-  document.getElementById('tempoEstimativasRow').innerHTML = `
-    <div class="stat-box"><b>${fmtDuracao(restTeoria)}</b><span>Falta (teoria) ${tipIcon('tempo_restante')}</span></div>
-    <div class="stat-box"><b>${fmtDuracao(restQuestoes)}</b><span>Falta (questões) ${tipIcon('tempo_restante')}</span></div>
-    <div class="stat-box"><b>${fmtDuracao((restTeoria||0)+(restQuestoes||0))}</b><span>Falta (total) ${tipIcon('tempo_restante')}</span></div>
-  `;
-
-  const dist = distribuicaoTempoPorMateria().filter(d=>d.tempoSegundos>0).sort((a,b)=>b.tempoSegundos-a.tempoSegundos);
-  const distWrap = document.getElementById('tempoDistribuicao');
-  distWrap.innerHTML = dist.length===0
-    ? `<div class="empty">Registre sessões de estudo para ver a distribuição de tempo entre matérias.</div>`
-    : dist.map(d=>`<div class="dist-row"><div class="nm">${d.name}</div><div class="bar"><i style="width:${d.pct}%"></i></div><div class="pct">${d.pct}%</div></div>`).join('') + `<div style="text-align:right; margin-top:4px;">${tipIcon('distribuicao_tempo')}</div>`;
-
-  const c = consistencia(30);
-  document.getElementById('tempoConsistencia').innerHTML = `
-    <div class="consist-grid">
-      <div class="stat-box"><b>${c.diasComSessao}/${c.diasPeriodo}</b><span>Dias estudados (${c.diasPeriodo}d)</span></div>
-      <div class="stat-box"><b>${fmtDuracao(c.tempoMedioDiarioSegundos)}</b><span>Média por dia</span></div>
-    </div>`;
-  document.getElementById('tipConsistencia').innerHTML = tipIcon('consistencia');
-
-  const tT = tendenciaRitmo('teoria', 7);
-  const tQ = tendenciaRitmo('questoes', 7);
-  function trendRow(label, t, unidade){
-    if(t.recente==null || t.anterior==null){
-      return `<div class="trend-box"><div>${label}</div><div class="empty" style="padding:0;">dados insuficientes</div></div>`;
-    }
-    const melhorou = t.variacaoPct<0;
-    const arrow = t.variacaoPct===0? '<svg class=ic-svg aria-hidden=true><use href=#ic-equal></use></svg>' : (melhorou? '<svg class=ic-svg aria-hidden=true><use href=#ic-arrow-down></use></svg> mais rápido' : '<svg class=ic-svg aria-hidden=true><use href=#ic-arrow-up></use></svg> mais lento');
-    const cls = t.variacaoPct===0? '' : (melhorou? 'down':'up');
-    return `<div class="trend-box"><div>${label}<br><small style="color:var(--text-mut); font-size:.72rem;">${fmtDuracao(t.recente)}/${unidade} (últ. ${t.janelaDias}d) vs ${fmtDuracao(t.anterior)}/${unidade} (${t.janelaDias}d antes)</small></div><div class="trend-arrow ${cls}">${arrow}${t.variacaoPct!==0? ' '+Math.abs(t.variacaoPct)+'%':''}</div></div>`;
-  }
-  document.getElementById('tempoTendencia').innerHTML = trendRow('Ritmo de leitura', tT, 'pág') + trendRow('Ritmo de resolução', tQ, 'questão');
-  document.getElementById('tipTendencia').innerHTML = tipIcon('tendencia_ritmo');
-
   document.getElementById('tipAnaliseDesempenho').innerHTML = tipIcon('analise_desempenho');
   const perfRows = buildAnaliseDesempenhoRows();
   document.getElementById('tempoDesvioChart').innerHTML = buildDesvioChartHtml(perfRows);
@@ -11341,7 +11263,13 @@ function openReplanCicloModal(){
     </div>`).join('') + `</div>`;
   html += `<div class="empty" style="padding:0 0 10px; text-align:left;">Peso relativo de cada dia na distribuição dos blocos de 30min da semana — deixe 0 num dia pra não estudar nele. Só vale pra matérias sem dia de casa ainda (ver Calendário da Semana); pra quem já tem dia de casa fixo, o peso do dia não é usado. Vale a partir da próxima semana gerada.</div>`;
   html += `<div class="form-row"><label>Matérias no ciclo e peso de cada uma ${tipIcon('peso_ciclo_sugerido')}</label></div>`;
-  html += `<div class="empty" style="padding:0 0 10px; text-align:left;">Desmarque uma matéria pra tirá-la do ciclo — ela também some do progresso geral, da Taxa de Domínio geral e de todas as outras métricas "todas as matérias" do app.</div>`;
+  html += `<div class="empty" style="padding:0 0 10px; text-align:left;">Desmarque uma matéria pra tirá-la do ciclo — ela também some do progresso geral, do Percentual de Acerto geral e de todas as outras métricas "todas as matérias" do app.</div>`;
+  // 17/09/2026 (pedido do Bruno): "peso" sozinho é uma escala sem unidade - dificil enxergar o
+  // que ele realmente significa em horas. O botao abaixo zera todo mundo pra peso 1 (divisao
+  // igual do ciclo: nenhuma materia "vale mais" que outra) - dali o Bruno sobe o peso so das
+  // materias que quer priorizar (peso 2 = o dobro do tempo de uma peso 1, etc.), e cada linha
+  // mostra ao vivo quantas horas aquele peso representa hoje, sem precisar salvar pra saber.
+  html += `<button type="button" class="btn ghost sm" id="replanPesosIguaisBtn" style="margin-bottom:10px;"><svg class=ic-svg aria-hidden=true><use href=#ic-restart></use></svg> Pesos iguais (1 pra cada)</button>`;
   html += SUBJECTS.map((s,si)=>{
     const ativa = isSubjectActive(si);
     const pesoAtual = c.pesos[si]!=null ? c.pesos[si] : pesoSugerido(si);
@@ -11349,11 +11277,51 @@ function openReplanCicloModal(){
       <input type="checkbox" class="replan-ativa" data-si="${si}" ${ativa?'checked':''}>
       <div class="nm">${s.name}<small class="replan-src-lbl">${overrideState[si]?'manual':'sugerido'}</small></div>
       <input type="number" min="0" max="99" step="0.1" class="replan-peso" data-si="${si}" value="${pesoAtual}">
+      <small class="replan-peso-hint" data-si="${si}"></small>
       <button type="button" class="replan-reset-peso" data-si="${si}" title="Usar peso sugerido" style="${overrideState[si]?'':'visibility:hidden;'}"><svg class=ic-svg aria-hidden=true><use href=#ic-restart></use></svg></button>
     </div>`;
   }).join('');
   html += `<button class="btn block" id="replanConfirmBtn" style="margin-top:14px;">Salvar</button>`;
   body.innerHTML = html;
+
+  // Recalcula os "→ Xh" de cada linha a partir do que esta NA TELA agora (horas + pesos ainda
+  // nao salvos) - mesma conta de cicloMetaSegundos (arredondar15min, piso 30min), pra o preview
+  // bater exatamente com o que a Sequencia de Estudos vai mostrar depois de salvar.
+  function recalcularHintsPeso(){
+    const horas = parseFloat(document.getElementById('replanHoras').value) || 0;
+    const pesos = {};
+    let totalPeso = 0;
+    body.querySelectorAll('.ciclo-peso-row').forEach(row=>{
+      const si = parseInt(row.dataset.si,10);
+      const ativa = row.querySelector('.replan-ativa').checked;
+      const peso = ativa ? Math.max(0, Number(row.querySelector('.replan-peso').value)||0) : 0;
+      pesos[si] = peso;
+      totalPeso += peso;
+    });
+    body.querySelectorAll('.replan-peso-hint').forEach(hint=>{
+      const si = parseInt(hint.dataset.si,10);
+      const row = hint.closest('.ciclo-peso-row');
+      const ativa = row.querySelector('.replan-ativa').checked;
+      if(!ativa || totalPeso<=0 || pesos[si]<=0){ hint.textContent = '→ —'; return; }
+      const segundos = arredondar15min(horas*3600*(pesos[si]/totalPeso));
+      const pct = Math.round(pesos[si]/totalPeso*100);
+      hint.textContent = `→ ${fmtDuracao(segundos)} (${pct}%)`;
+    });
+  }
+  recalcularHintsPeso();
+  document.getElementById('replanHoras').addEventListener('input', recalcularHintsPeso);
+  document.getElementById('replanPesosIguaisBtn').addEventListener('click', ()=>{
+    body.querySelectorAll('.ciclo-peso-row').forEach(row=>{
+      if(!row.querySelector('.replan-ativa').checked) return; // nao mexe em materia desmarcada
+      const si = parseInt(row.dataset.si,10);
+      overrideState[si] = true;
+      row.querySelector('.replan-peso').value = 1;
+      row.querySelector('.replan-reset-peso').style.visibility = '';
+      row.querySelector('.replan-src-lbl').textContent = 'manual';
+    });
+    recalcularHintsPeso();
+    toast('Pesos iguais aplicados — ajuste pra cima só o que quiser priorizar');
+  });
 
   // Habilita/desabilita o campo de peso via JS (nunca via atributo estatico), pra o
   // toggle funcionar de forma simetrica em ambas as direções.
@@ -11366,6 +11334,7 @@ function openReplanCicloModal(){
       const row = chk.closest('.ciclo-peso-row');
       row.classList[chk.checked ? 'remove' : 'add']('inativa');
       row.querySelector('.replan-peso').disabled = !chk.checked;
+      recalcularHintsPeso();
     });
   });
   body.querySelectorAll('.replan-peso').forEach(inp=>{
@@ -11375,6 +11344,7 @@ function openReplanCicloModal(){
       const row = inp.closest('.ciclo-peso-row');
       row.querySelector('.replan-reset-peso').style.visibility = '';
       row.querySelector('.replan-src-lbl').textContent = 'manual';
+      recalcularHintsPeso();
     });
   });
   body.querySelectorAll('.replan-reset-peso').forEach(btn=>{
@@ -11385,6 +11355,7 @@ function openReplanCicloModal(){
       row.querySelector('.replan-peso').value = pesoSugerido(si);
       btn.style.visibility = 'hidden';
       row.querySelector('.replan-src-lbl').textContent = 'sugerido';
+      recalcularHintsPeso();
     });
   });
   wireTooltips(body);
