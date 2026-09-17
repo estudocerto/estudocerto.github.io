@@ -1897,6 +1897,7 @@
   .ciclo-peso-row .replan-peso-hint{flex:0 0 auto; width:82px; font-size:.68rem; font-weight:650; color:var(--text-mut); white-space:nowrap; text-align:right;}
   .ciclo-peso-row .replan-reset-peso{flex:0 0 auto; width:28px; height:28px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text-mut); cursor:pointer; font-size:.85rem;}
   .ciclo-peso-row .replan-reset-peso:hover{color:var(--green-dark); border-color:var(--green);}
+  .ciclo-peso-fora-titulo{font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--text-mut); margin:10px 0 2px; padding-top:10px; border-top:1px dashed var(--border);}
 
   /* ===================== CONFIGURAÇÕES (tema, paleta, dados) =====================
      O botao que abre essa tela agora mora na barra inferior (depois de "Metas"),
@@ -5685,7 +5686,7 @@ function nivelLabel(n){ return NIVEL_LABELS[n] || n; }
 const EXTRA_TIPS = {
   peso_ciclo_sugerido: {
     titulo: 'Como o peso sugerido é calculado',
-    tooltip: 'O peso sugerido de cada matéria é proporcional ao tempo que falta pra terminar de ler a teoria dela (páginas restantes ÷ seu ritmo de leitura naquela matéria). Assim, uma matéria com o dobro do tempo restante de outra recebe o dobro do peso — e, dentro do ciclo, o dobro das horas semanais. O efeito matemático: seguindo o ciclo à risca, todas as matérias ativas tendem a terminar a teoria perto da mesma data, em vez de uma ficar pra trás — veja "Ritmo até a data alvo", no card do Ciclo, pra comparar com a data que você escolheu em Metas. Sem sessões suficientes ainda para calcular um ritmo, o app usa uma estimativa genérica baseada só nas páginas restantes. Esse peso sugerido é recalculado e travado uma vez no início de cada rodada do ciclo (e não muda sozinho enquanto ela estiver em andamento, mesmo que o tempo restante mude) — assim a meta de cada matéria fica estável até a rodada fechar. Você pode sobrescrever o valor sugerido a qualquer momento digitando o seu próprio peso — nesse caso ele fica fixo até a PRÓXIMA vez que você apertar "Atualizar ciclo pra esta semana" ou clicar em "usar sugestão" pra essa matéria: aí ele é recalculado do zero a partir do que está pendente naquele momento. O tempo semanal que esse peso vira dentro do ciclo tem piso de 30min por matéria e sempre fecha em múltiplos de 15min (30min, 45min, 1h, 1h15…) — nunca uma fração como "37min". Prefere pensar em peso como prioridade relativa, não como carga pendente? O botão "Pesos iguais (1 pra cada)" zera todo mundo pro mesmo peso (divisão igual do ciclo) — dali, suba o peso só das matérias que quiser priorizar (peso 2 = o dobro do tempo de uma peso 1). Cada linha mostra ao vivo, em "→ Xh", quantas horas aquele peso representa antes mesmo de salvar.'
+    tooltip: 'O peso sugerido de cada matéria é proporcional ao tempo que falta pra terminar de ler a teoria dela (páginas restantes ÷ seu ritmo de leitura naquela matéria). Assim, uma matéria com o dobro do tempo restante de outra recebe o dobro do peso — e, dentro do ciclo, o dobro das horas semanais. O efeito matemático: seguindo o ciclo à risca, todas as matérias ativas tendem a terminar a teoria perto da mesma data, em vez de uma ficar pra trás — veja "Ritmo até a data alvo", no card do Ciclo, pra comparar com a data que você escolheu em Metas. Sem sessões suficientes ainda para calcular um ritmo, o app usa uma estimativa genérica baseada só nas páginas restantes. Esse peso sugerido é recalculado e travado uma vez no início de cada rodada do ciclo (e não muda sozinho enquanto ela estiver em andamento, mesmo que o tempo restante mude) — assim a meta de cada matéria fica estável até a rodada fechar. Você pode sobrescrever o valor sugerido a qualquer momento digitando o seu próprio peso — nesse caso ele fica fixo até a PRÓXIMA vez que você apertar "Atualizar ciclo pra esta semana" ou clicar em "usar sugestão" pra essa matéria: aí ele é recalculado do zero a partir do que está pendente naquele momento. O tempo semanal que esse peso vira dentro do ciclo tem piso de 30min por matéria e sempre fecha em múltiplos de 15min (30min, 45min, 1h, 1h15…) — nunca uma fração como "37min". Prefere pensar em peso como prioridade relativa, não como carga pendente? O botão "Pesos iguais (10 pra cada)" zera todo mundo pro mesmo peso (divisão igual do ciclo) — dali, suba ou desça o peso das matérias que quiser priorizar ou reduzir (peso 20 = o dobro do tempo de uma peso 10; peso 5 = metade). Cada linha mostra ao vivo, em "→ Xh", quantas horas aquele peso representa antes mesmo de salvar.'
   },
   meta_data_alvo: {
     titulo: 'Meta por data alvo',
@@ -11265,12 +11266,14 @@ function openReplanCicloModal(){
   html += `<div class="form-row"><label>Matérias no ciclo e peso de cada uma ${tipIcon('peso_ciclo_sugerido')}</label></div>`;
   html += `<div class="empty" style="padding:0 0 10px; text-align:left;">Desmarque uma matéria pra tirá-la do ciclo — ela também some do progresso geral, do Percentual de Acerto geral e de todas as outras métricas "todas as matérias" do app.</div>`;
   // 17/09/2026 (pedido do Bruno): "peso" sozinho é uma escala sem unidade - dificil enxergar o
-  // que ele realmente significa em horas. O botao abaixo zera todo mundo pra peso 1 (divisao
-  // igual do ciclo: nenhuma materia "vale mais" que outra) - dali o Bruno sobe o peso so das
-  // materias que quer priorizar (peso 2 = o dobro do tempo de uma peso 1, etc.), e cada linha
-  // mostra ao vivo quantas horas aquele peso representa hoje, sem precisar salvar pra saber.
-  html += `<button type="button" class="btn ghost sm" id="replanPesosIguaisBtn" style="margin-bottom:10px;"><svg class=ic-svg aria-hidden=true><use href=#ic-restart></use></svg> Pesos iguais (1 pra cada)</button>`;
-  html += SUBJECTS.map((s,si)=>{
+  // que ele realmente significa em horas. O botao abaixo zera todo mundo pra peso 10 (divisao
+  // igual do ciclo: nenhuma materia "vale mais" que outra) - baseline 10, nao 1, pra dar espaco
+  // de sobra pra REDUZIR o peso de uma materia (ex.: 10 -> 3) sem esbarrar em fracao/zero tao
+  // rapido quanto reduzir a partir de 1. Dali o Bruno ajusta pra cima ou pra baixo so das
+  // materias que quer priorizar/reduzir (peso 20 = o dobro do tempo de uma peso 10, etc.), e
+  // cada linha mostra ao vivo quantas horas aquele peso representa hoje, sem precisar salvar.
+  html += `<button type="button" class="btn ghost sm" id="replanPesosIguaisBtn" style="margin-bottom:10px;"><svg class=ic-svg aria-hidden=true><use href=#ic-restart></use></svg> Pesos iguais (10 pra cada)</button>`;
+  const rowHtmlReplan = (s,si)=>{
     const ativa = isSubjectActive(si);
     const pesoAtual = c.pesos[si]!=null ? c.pesos[si] : pesoSugerido(si);
     return `<div class="ciclo-peso-row${ativa?'':' inativa'}" data-si="${si}">
@@ -11280,7 +11283,19 @@ function openReplanCicloModal(){
       <small class="replan-peso-hint" data-si="${si}"></small>
       <button type="button" class="replan-reset-peso" data-si="${si}" title="Usar peso sugerido" style="${overrideState[si]?'':'visibility:hidden;'}"><svg class=ic-svg aria-hidden=true><use href=#ic-restart></use></svg></button>
     </div>`;
-  }).join('');
+  };
+  // 17/09/2026 (pedido do Bruno): so a DIVISAO visual entre ativas/inativas, calculada uma vez
+  // na abertura do modal - as inativas continuam com o checkbox pra reativar, so ficam agrupadas
+  // embaixo pra nao quebrar a visao das ativas (que e o que importa pra planejar o ciclo). Nao
+  // reordena ao vivo enquanto o Bruno mexe nos checkboxes dentro do modal (evitaria linha
+  // "pulando" de lugar no meio do ajuste) - a divisao reflete o estado de quando o modal abriu.
+  const subjAtivas = SUBJECTS.map((s,si)=>({s,si})).filter(({si})=> isSubjectActive(si));
+  const subjInativas = SUBJECTS.map((s,si)=>({s,si})).filter(({si})=> !isSubjectActive(si));
+  html += subjAtivas.map(({s,si})=> rowHtmlReplan(s,si)).join('');
+  if(subjInativas.length){
+    html += `<div class="ciclo-peso-fora-titulo">Fora do ciclo</div>`;
+    html += subjInativas.map(({s,si})=> rowHtmlReplan(s,si)).join('');
+  }
   html += `<button class="btn block" id="replanConfirmBtn" style="margin-top:14px;">Salvar</button>`;
   body.innerHTML = html;
 
@@ -11315,12 +11330,12 @@ function openReplanCicloModal(){
       if(!row.querySelector('.replan-ativa').checked) return; // nao mexe em materia desmarcada
       const si = parseInt(row.dataset.si,10);
       overrideState[si] = true;
-      row.querySelector('.replan-peso').value = 1;
+      row.querySelector('.replan-peso').value = 10;
       row.querySelector('.replan-reset-peso').style.visibility = '';
       row.querySelector('.replan-src-lbl').textContent = 'manual';
     });
     recalcularHintsPeso();
-    toast('Pesos iguais aplicados — ajuste pra cima só o que quiser priorizar');
+    toast('Pesos iguais aplicados (10 pra cada) — ajuste pra cima ou pra baixo o que quiser');
   });
 
   // Habilita/desabilita o campo de peso via JS (nunca via atributo estatico), pra o
