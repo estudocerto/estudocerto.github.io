@@ -4653,6 +4653,17 @@ function ensureCicloDefaults(){
   // cicloStartedAt atual como ponto de partida (não há como saber quando o acompanhamento
   // "de verdade" começou antes disso).
   if(!c.acompanhamentoDesde) c.acompanhamentoDesde = c.cicloStartedAt;
+  // 21/09/2026: o ciclo que o Bruno encerrou por "Atualizar ciclo" ANTES de essa regra existir
+  // ficou fora do contador. Conta uma vez o fechamento mais recente ainda nao contado (marco
+  // "reiniciado" de 14/09 em diante); fechamentos novos ja saem marcados (contado) em
+  // atualizarCicloSemanaManual e nao entram aqui.
+  if(!c.ajusteAtualizarCicloV1){
+    c.ajusteAtualizarCicloV1 = true;
+    const desde = new Date('2026-09-14T00:00:00').getTime();
+    const naoContados = (state.historicoCiclos||[]).filter(r=> !r.completo && !r.contado && r.fim>=desde).sort((a,b)=> b.fim-a.fim);
+    if(naoContados.length){ naoContados[0].contado = true; c.ciclosCompletos += 1; }
+    save();
+  }
   return c;
 }
 // Uma materia pode ser excluida do ciclo (aba Planejamento). Isso vale pro app inteiro: ela
@@ -4698,7 +4709,7 @@ function pesoSugerido(si){
 // o peso sugerido na primeira vez que ele é preciso dentro da rodada atual, e reaproveita esse
 // mesmo valor daqui pra frente, até: (a) a rodada fechar e uma nova começar (criarCiclo/
 // recomecarCiclo/fechamento automático em checkCicloCompletion), (b) "Atualizar ciclo pra esta
-// semana" rodar (recalcularPesosCiclo), ou (c) o usuário sobrescrever esse peso manualmente em
+// semana" rodar (recalcularPesosCiclo - so descarta o valor congelado, o peso manual continua), ou (c) o usuário sobrescrever esse peso manualmente em
 // Replanejar (override em c.pesos sempre vale na hora).
 //
 // ago/2026 (bug reportado pelo Bruno, "por que o que falta não bate com a semana"): antes,
@@ -4719,22 +4730,21 @@ function pesoEfetivoCiclo(si){
   if(c.pesoSnapshot[si]==null) c.pesoSnapshot[si] = pesoSugerido(si); // congela na 1a vez que precisa nesta rodada
   return c.pesoSnapshot[si];
 }
-// Recalcula os pesos de TODAS as matérias ativas a partir do zero (limpa qualquer override
-// manual feito em "Replanejar" E qualquer valor já congelado pela rodada em curso) - chamado
-// toda vez que a semana vira (atualizarCicloSemanaManual), pra garantir que o peso sempre
-// reflita o que está pendente AGORA, nunca um valor manual ou congelado de semanas atrás.
-// Devolve quantas matérias tinham peso manual (pra mensagem ao usuário) - o valor em si não
-// precisa ser escrito de volta em c.pesos: apagar o override é suficiente pra
-// pesoEfetivoCiclo/getCicloPeso voltarem a congelar pesoSugerido(si) de novo, fresco, na
-// próxima vez que alguém precisar dele.
+// Recalcula o peso SUGERIDO das matérias a partir do que está pendente agora (descarta só o valor
+// já congelado pela rodada em curso) - chamado toda vez que a semana vira
+// (atualizarCicloSemanaManual). 21/09/2026 (pedido do Bruno: "o Atualizar ciclo não considerou os
+// pesos que coloquei no último Replanejar"): os pesos MANUAIS (c.pesos, definidos em Replanejar)
+// NÃO são mais apagados aqui - ficam valendo, semana após semana, até o usuário resetar a matéria
+// ("usar sugestão", resetCicloPeso). Só quem não tem peso manual volta a congelar
+// pesoSugerido(si), fresco, na próxima vez que alguém precisar dele. Devolve quantas matérias
+// ativas têm peso manual mantido (pra mensagem ao usuário).
 function recalcularPesosCiclo(){
   const c = ensureCicloDefaults();
   if(!c) return 0;
-  const tinhamOverride = Object.keys(c.pesos).filter(siStr=> isSubjectActive(Number(siStr))).length;
-  c.pesos = {};
+  const manuaisMantidos = Object.keys(c.pesos).filter(siStr=> isSubjectActive(Number(siStr))).length;
   c.pesoSnapshot = {};
   save();
-  return tinhamOverride;
+  return manuaisMantidos;
 }
 function getCicloPeso(si){
   const c = ensureCicloDefaults();
@@ -5193,7 +5203,7 @@ function gerarSemanaCalendario(forcar){
   if(!forcar && c.semanaRef===segunda && c.algoVersion===CALENDARIO_ALGO_VERSION) return; // ja gerada nesta versao do algoritmo, nao sobrescreve arrastos manuais
   if(c.semanaRef!==segunda){
     const segMs = new Date(segunda+'T00:00:00').getTime();
-    c.inicioCreditoMs = segMs + Math.min(Math.max(0, Date.now()-segMs), 4*3600000); // ver janelaCreditoSemanaMs
+    c.inicioCreditoMs = Math.max(segMs, (state.ciclo && state.ciclo.cicloStartedAt) || 0); // ver janelaCreditoSemanaMs
   }
   c.semanaRef = segunda;
   c.algoVersion = CALENDARIO_ALGO_VERSION;
@@ -5414,10 +5424,13 @@ function calendarioDesatualizado(){
 // 21/09/2026 (pedido do Bruno): janela de tempo cujas sessoes contam pra semana exibida.
 // Estudo depois da meia-noite e antes das 4h da segunda seguinte AINDA e estudo de domingo
 // (mesmo corte de diaEstudoDe) enquanto a semana nova nao foi criada - por isso o fim da janela
-// vai ate 4h da segunda. O inicio so difere da segunda 00:00 quando ESTA semana foi criada logo
-// na madrugada de segunda (c.inicioCreditoMs, gravado em gerarSemanaCalendario): o que foi
-// estudado antes de criar a semana nova, ate 4h, pertence a semana anterior e nao pode valer nas
-// duas. Semana criada antes deste campo existir: cai na segunda 00:00, como sempre foi.
+// vai ate 4h da segunda. O inicio e o comeco da rodada do ciclo que gerou ESTA semana
+// (c.inicioCreditoMs, gravado em gerarSemanaCalendario a partir de cicloStartedAt - que
+// "Atualizar ciclo" avanca pra logo depois da ultima sessao): tudo que foi estudado ate o
+// fechamento pertence ao ciclo anterior e nao pode creditar/aparecer na semana nova (bug
+// reportado pelo Bruno: Adm. Mercadologica estudada no ciclo anterior aparecia em "Seg"). Nunca
+// antes da segunda 00:00. Semana criada antes deste campo existir: ver migracao (doneTsVersao 3)
+// em sincronizarBlocosSemana.
 function janelaCreditoSemanaMs(c){
   const segMs = new Date(c.semanaRef+'T00:00:00').getTime();
   return { ini: c.inicioCreditoMs || segMs, fim: segMs + 7*86400000 + 4*3600000 };
@@ -5502,17 +5515,18 @@ function atualizarCicloSemanaManual(){
     // (ha sessao nova na rodada): se o fechamento automatico acabou de rodar, registrarHistoricoCiclo
     // devolve null e nao soma de novo. O marco no historico continua "reiniciado" (completo:false)
     // porque guarda o que ficou abaixo da meta.
-    if(registrarHistoricoCiclo(maxFim, false)) c.ciclosCompletos = (c.ciclosCompletos||0)+1;
+    const regFechamento = registrarHistoricoCiclo(maxFim, false);
+    if(regFechamento){ regFechamento.contado = true; c.ciclosCompletos = (c.ciclosCompletos||0)+1; }
     c.cicloStartedAt = maxFim+1;
     save();
   }
-  const nRecalculadas = recalcularPesosCiclo();
+  const nManuais = recalcularPesosCiclo();
   gerarSemanaCalendario(true);
   renderPlanejamento();
-  toast(nRecalculadas>0
-    ? (nRecalculadas===1
-        ? 'Ciclo atualizado: rodada anterior encerrada, pesos recalculados com base no que ainda está pendente (1 matéria voltou a ser automática).'
-        : `Ciclo atualizado: rodada anterior encerrada, pesos recalculados com base no que ainda está pendente (${nRecalculadas} matérias voltaram a ser automáticas).`)
+  toast(nManuais>0
+    ? (nManuais===1
+        ? 'Ciclo atualizado: rodada anterior encerrada, pesos recalculados com base no que ainda está pendente (o peso manual de 1 matéria foi mantido).'
+        : `Ciclo atualizado: rodada anterior encerrada, pesos recalculados com base no que ainda está pendente (o peso manual de ${nManuais} matérias foi mantido).`)
     : 'Ciclo atualizado: rodada anterior encerrada, pesos recalculados com base no que ainda está pendente.');
 }
 /* ===================== SINCRONIA DO CALENDARIO COM QUALQUER SESSAO (ago/2026) =====================
@@ -5551,6 +5565,22 @@ let _ultimoCreditoSemana = { saldoAposConsumo:{}, primeiroPendente:{} };
 function sincronizarBlocosSemana(){
   const c = ensureCalendarioDefaults();
   if(!c.semanaRef) return;
+  // Migracao unica (v3): semanas criadas antes de c.inicioCreditoMs existir - o fechamento do
+  // ciclo que gerou a semana e' o ultimo marco "reiniciado" (completo:false) do historico, cujo
+  // fim e' a ultima sessao do ciclo anterior. Como o credito de um bloco so e' calculado a partir
+  // da janela (e "done" nunca volta sozinho), refaz uma vez o estado dos blocos: desmarca todos e
+  // o restante desta funcao recredita pela janela nova (idempotente - mesma conta de sempre).
+  let mudou = false;
+  if(c.doneTsVersao!==3){
+    mudou = true;
+    if(c.inicioCreditoMs==null){
+      const segMs = new Date(c.semanaRef+'T00:00:00').getTime();
+      const fechamentos = (state.historicoCiclos||[]).filter(r=> !r.completo).sort((a,b)=> b.fim-a.fim);
+      if(fechamentos.length && fechamentos[0].fim>=segMs) c.inicioCreditoMs = fechamentos[0].fim+1;
+    }
+    DIAS_SEMANA.forEach(d=> (c.blocos[d]||[]).forEach(b=>{ b.done = false; delete b.doneTs; }));
+    c.doneTsVersao = 3;
+  }
   const { ini: inicioSemanaMs, fim: fimSemanaMs } = janelaCreditoSemanaMs(c);
   const saldoPorMateria = {};
   const sessoesPorMateria = {};
@@ -5586,13 +5616,6 @@ function sincronizarBlocosSemana(){
       if(b.done) saldoPorMateria[b.si] = (saldoPorMateria[b.si]||0) - (b.duracaoMin||30)*60;
     });
   });
-  let mudou = false;
-  // v1 gravava 'agora' pra bloco concluido sem nenhuma sessao na semana - recalcula uma vez.
-  if(c.doneTsVersao!==2){
-    DIAS_SEMANA.forEach(d=> (c.blocos[d]||[]).forEach(b=>{ delete b.doneTs; }));
-    c.doneTsVersao = 2;
-    mudou = true;
-  }
   const primeiroPendente = {};
   DIAS_SEMANA.forEach(d=>{
     (c.blocos[d]||[]).forEach((b,idx)=>{
@@ -5737,7 +5760,7 @@ function nivelLabel(n){ return NIVEL_LABELS[n] || n; }
 const EXTRA_TIPS = {
   peso_ciclo_sugerido: {
     titulo: 'Como o peso sugerido é calculado',
-    tooltip: 'O peso sugerido de cada matéria é proporcional ao tempo que falta pra terminar de ler a teoria dela (páginas restantes ÷ seu ritmo de leitura naquela matéria). Assim, uma matéria com o dobro do tempo restante de outra recebe o dobro do peso — e, dentro do ciclo, o dobro das horas semanais. O efeito matemático: seguindo o ciclo à risca, todas as matérias ativas tendem a terminar a teoria perto da mesma data, em vez de uma ficar pra trás — veja "Ritmo até a data alvo", no card do Ciclo, pra comparar com a data que você escolheu em Metas. Sem sessões suficientes ainda para calcular um ritmo, o app usa uma estimativa genérica baseada só nas páginas restantes. Esse peso sugerido é recalculado e travado uma vez no início de cada rodada do ciclo (e não muda sozinho enquanto ela estiver em andamento, mesmo que o tempo restante mude) — assim a meta de cada matéria fica estável até a rodada fechar. Você pode sobrescrever o valor sugerido a qualquer momento digitando o seu próprio peso — nesse caso ele fica fixo até a PRÓXIMA vez que você apertar "Atualizar ciclo pra esta semana" ou clicar em "usar sugestão" pra essa matéria: aí ele é recalculado do zero a partir do que está pendente naquele momento. O tempo semanal que esse peso vira dentro do ciclo tem piso de 30min por matéria e sempre fecha em múltiplos de 15min (30min, 45min, 1h, 1h15…) — nunca uma fração como "37min". Prefere pensar em peso como prioridade relativa, não como carga pendente? O botão "Pesos iguais (10 pra cada)" zera todo mundo pro mesmo peso (divisão igual do ciclo) — dali, suba ou desça o peso das matérias que quiser priorizar ou reduzir (peso 20 = o dobro do tempo de uma peso 10; peso 5 = metade). Cada linha mostra ao vivo, em "→ Xh", quantas horas aquele peso representa antes mesmo de salvar.'
+    tooltip: 'O peso sugerido de cada matéria é proporcional ao tempo que falta pra terminar de ler a teoria dela (páginas restantes ÷ seu ritmo de leitura naquela matéria). Assim, uma matéria com o dobro do tempo restante de outra recebe o dobro do peso — e, dentro do ciclo, o dobro das horas semanais. O efeito matemático: seguindo o ciclo à risca, todas as matérias ativas tendem a terminar a teoria perto da mesma data, em vez de uma ficar pra trás — veja "Ritmo até a data alvo", no card do Ciclo, pra comparar com a data que você escolheu em Metas. Sem sessões suficientes ainda para calcular um ritmo, o app usa uma estimativa genérica baseada só nas páginas restantes. Esse peso sugerido é recalculado e travado uma vez no início de cada rodada do ciclo (e não muda sozinho enquanto ela estiver em andamento, mesmo que o tempo restante mude) — assim a meta de cada matéria fica estável até a rodada fechar. Você pode sobrescrever o valor sugerido a qualquer momento digitando o seu próprio peso — nesse caso ele fica fixo — inclusive quando você aperta "Atualizar ciclo pra esta semana" — até você clicar em "usar sugestão" pra essa matéria: aí ele é recalculado do zero a partir do que está pendente naquele momento. As matérias sem peso manual continuam sendo recalculadas a cada "Atualizar ciclo". O tempo semanal que esse peso vira dentro do ciclo tem piso de 30min por matéria e sempre fecha em múltiplos de 15min (30min, 45min, 1h, 1h15…) — nunca uma fração como "37min". Prefere pensar em peso como prioridade relativa, não como carga pendente? O botão "Pesos iguais (10 pra cada)" zera todo mundo pro mesmo peso (divisão igual do ciclo) — dali, suba ou desça o peso das matérias que quiser priorizar ou reduzir (peso 20 = o dobro do tempo de uma peso 10; peso 5 = metade). Cada linha mostra ao vivo, em "→ Xh", quantas horas aquele peso representa antes mesmo de salvar.'
   },
   meta_data_alvo: {
     titulo: 'Meta por data alvo',
