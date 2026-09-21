@@ -1791,37 +1791,22 @@
      coluna (mesmo princípio do gráfico "Estudo por dia"), e como piso final, o nome trunca em 3
      linhas com "…" em vez de continuar crescendo (o nome completo já aparece no title do bloco,
      ver renderCalendario - toque longo/hover). */
-  .cal-grid{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px;}
-  .cal-day-col{min-height:100px; background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:8px 4px; transition:background .12s ease, border-color .12s ease; min-width:0; container-type:inline-size;}
+  .cal-grid{display:grid; grid-template-columns:minmax(0,1.25fr) repeat(7,minmax(0,1fr)); gap:5px; align-items:start;}
+  .cal-day-col{min-height:160px; background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:8px 4px; transition:background .12s ease, border-color .12s ease; min-width:0; container-type:inline-size;}
   .cal-day-col.hoje{border-color:var(--green); box-shadow:inset 0 0 0 1px var(--green);}
-  .cal-day-col.cal-drop-hover{background:color-mix(in srgb, var(--green) 10%, var(--bg));}
+  .cal-day-col.cal-pool-col{border-style:dashed; min-height:0;}
   /* 30/08/2026 (pedido do Bruno, "essa visão de múltiplos dias vira o padrão no celular"):
-     em telas estreitas o calendário sempre mostra os 7 dias em colunas de largura fixa,
-     rolando de lado (sem abas, sem "1 dia por vez" - isso foi tentado antes e substituído por
-     pedido dele). Nome de matéria sempre legível numa coluna de ~150px, bem diferente do
+     em telas estreitas o calendário sempre mostra o pool + os 7 dias em colunas de largura
+     fixa, rolando de lado (sem abas, sem "1 dia por vez" - isso foi tentado antes e substituído
+     por pedido dele). Nome de matéria sempre legível numa coluna de ~150px, bem diferente do
      antigo grid de 7 frações da largura (~45px cada, ilegível - ver comentário de
      .cal-block-nm mais abaixo pra esse capítulo anterior). Em tela larga (desktop/tablet)
-     nada disso entra - a grade original de 7 colunas iguais continua intocada. */
+     nada disso entra - grade de colunas iguais (pool um pouco mais largo). */
   .cal-dia-nav{display:none; align-items:center; gap:6px; margin-bottom:8px;}
-  .cal-dia-nav .cal-dia-seta{flex:0 0 auto; width:32px; height:32px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:.9rem;}
-  /* 30/08/2026 (pedido do Bruno, "quando passo o dedo pra rolar a tela, as matérias
-     desconfiguram"): .cal-block usa touch-action:none (linha mais abaixo) pra habilitar
-     arrastar-pra-reordenar via Pointer Events - mas isso também captura QUALQUER toque
-     iniciado em cima de um bloco, inclusive um toque que só queria rolar (a página pra baixo,
-     ou a fileira de dias pro lado), e o gesto virava um arrasto acidental. Só no celular,
-     blocos ficam "travados" por padrão (touch-action:auto - libera rolagem nativa nas DUAS
-     direções, já que agora dá pra rolar tanto a página quanto a fileira de dias; tocar ainda
-     abre a sessão) até o usuário apertar "Editar", que volta pro touch-action:none de sempre
-     (igual desktop) pra soltar o arrastar-pra-reordenar/mover-de-dia via wireCalendarDrag -
-     sem precisar de nenhuma lógica de arrastar nova, só reaproveita a que já existe. */
-  .cal-dia-editar{display:none; flex:0 0 auto; width:32px; height:32px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text-mut);}
-  .cal-dia-editar.ativo{background:var(--green); color:var(--on-accent); border-color:var(--green);}
   @media(max-width:599px){
     .cal-dia-nav{display:flex;}
-    .cal-dia-editar{display:flex; align-items:center; justify-content:center;}
     .cal-grid{display:flex; gap:5px; overflow-x:auto; padding-bottom:4px;}
     .cal-day-col{flex:0 0 150px;}
-    .cal-grid:not(.cal-editando) .cal-block{cursor:default; touch-action:auto;}
   }
   .cal-day-hd{text-align:center; margin-bottom:8px;}
   .cal-day-hd .nm{font-size:.82rem; font-weight:800; color:var(--text);}
@@ -1833,10 +1818,10 @@
     background:color-mix(in srgb, var(--mat-cor) 22%, var(--card));
     border-left:4px solid var(--mat-cor);
     border-radius:8px; padding:9px 8px; margin-bottom:7px; font-size:.76rem; font-weight:700; color:var(--text);
-    cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none;
+    cursor:default; user-select:none; -webkit-user-select:none;
     display:flex; flex-direction:column; align-items:flex-start; gap:4px;
-    transition:opacity .12s ease, border-top-width .1s ease, border-bottom-width .1s ease;
   }
+  .cal-block.pool{cursor:pointer;}
   .cal-block .cal-block-nm{
     white-space:normal; overflow-wrap:break-word; line-height:1.25;
     font-size:clamp(.6rem, 15cqw, .76rem); /* satura em .76rem (tamanho original) em colunas largas - inofensivo la */
@@ -1855,16 +1840,12 @@
   }
   .cal-block .cal-block-dur{font-size:.66rem; font-weight:600; color:var(--text-mut); opacity:.85;}
   .cal-block svg{width:13px; height:13px; flex-shrink:0; color:var(--mat-cor);}
-  .cal-block.done{opacity:.55; cursor:default;}
+  .cal-block.done{cursor:default;}
   .cal-block.inativa{opacity:.4; text-decoration:line-through;}
-  .cal-block.cal-dragging{opacity:.35;}
   /* Par por padrao (2 blocos de 30min seguidos da mesma materia = 1h): funde a borda entre
      eles pra parecer uma pilula so, mesmo cada um continuando um bloco independente. */
   .cal-block.join-bottom{margin-bottom:1px; border-bottom-left-radius:0; border-bottom-right-radius:0;}
   .cal-block.join-top{margin-top:-1px; border-top-left-radius:0; border-top-right-radius:0; border-top:1px dashed color-mix(in srgb, var(--mat-cor) 50%, transparent);}
-  .cal-block.cal-drop-before{border-top:3px solid var(--green);}
-  .cal-block.cal-drop-after{border-bottom:3px solid var(--green);}
-  .cal-drag-ghost{position:fixed; z-index:999; pointer-events:none; opacity:.9; box-shadow:0 8px 22px rgba(0,0,0,.3); transform:rotate(-2deg);}
   .cal-dias-cfg{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;}
   .cal-dia-cfg-item{display:flex; flex-direction:column; align-items:center; gap:3px; font-size:.68rem; color:var(--text-mut); font-weight:700;}
   .cal-dia-cfg-item input{width:52px; text-align:center; padding:6px 2px;}
@@ -4991,7 +4972,7 @@ function proximaAulaPendenteMateria(si){
 
 /* ===================== CALENDÁRIO DA SEMANA (Ciclo) =====================
    Visão semanal do Ciclo: a mesma meta de horas por matéria (cicloMetaSegundos)
-   distribuída em blocos de 30min ao longo dos 7 dias, que o usuário pode arrastar
+   distribuída em blocos de 30min ao longo dos 7 dias (plano interno - a tela mostra só pool + concluídos por dia)
    pra reorganizar. Não é um sistema paralelo ao Ciclo — é só outra forma de olhar
    pro mesmo motor (peso, meta, estudado). Guardado em state.calendario.
 
@@ -5198,6 +5179,10 @@ function gerarSemanaCalendario(forcar){
   const c = ensureCalendarioDefaults();
   const segunda = segundaFeiraDe(todayStr());
   if(!forcar && c.semanaRef===segunda && c.algoVersion===CALENDARIO_ALGO_VERSION) return; // ja gerada nesta versao do algoritmo, nao sobrescreve arrastos manuais
+  if(c.semanaRef!==segunda){
+    const segMs = new Date(segunda+'T00:00:00').getTime();
+    c.inicioCreditoMs = segMs + Math.min(Math.max(0, Date.now()-segMs), 4*3600000); // ver janelaCreditoSemanaMs
+  }
   c.semanaRef = segunda;
   c.algoVersion = CALENDARIO_ALGO_VERSION;
   const cc = state.ciclo;
@@ -5369,7 +5354,11 @@ function gerarCicloBonus(horasBonus){
     }
   }
 
-  diasAlvo.forEach(d=> c.blocos[d] = blocosPorDia[d]); // so os dias-alvo - dias passados intocados
+  // so os dias-alvo - dias passados intocados. Blocos JA concluidos que estavam planejados nesses
+  // dias ficam (o Calendario mostra cada bloco concluido no dia em que foi feito, entao apagar
+  // eles sumiria com o historico da semana) - e continuam consumindo saldo, como sempre
+  // consumiram enquanto existiam (ver sincronizarBlocosSemana).
+  diasAlvo.forEach(d=> c.blocos[d] = (c.blocos[d]||[]).filter(b=>b.done).concat(blocosPorDia[d]));
   save();
 }
 // 30/08/2026 (pedido do Bruno, "ciclo bonus"): quantas horas sugerir por padrao no modal de
@@ -5410,18 +5399,29 @@ function calendarioDesatualizado(){
    influenciar o peso da semana seguinte (o antigo fatorAjusteDesvio foi removido a pedido do
    Bruno; o peso agora vem só do que está pendente agora, ver pesoSugerido/recalcularPesosCiclo,
    ambos chamados por atualizarCicloSemanaManual). */
+// 21/09/2026 (pedido do Bruno): janela de tempo cujas sessoes contam pra semana exibida.
+// Estudo depois da meia-noite e antes das 4h da segunda seguinte AINDA e estudo de domingo
+// (mesmo corte de diaEstudoDe) enquanto a semana nova nao foi criada - por isso o fim da janela
+// vai ate 4h da segunda. O inicio so difere da segunda 00:00 quando ESTA semana foi criada logo
+// na madrugada de segunda (c.inicioCreditoMs, gravado em gerarSemanaCalendario): o que foi
+// estudado antes de criar a semana nova, ate 4h, pertence a semana anterior e nao pode valer nas
+// duas. Semana criada antes deste campo existir: cai na segunda 00:00, como sempre foi.
+function janelaCreditoSemanaMs(c){
+  const segMs = new Date(c.semanaRef+'T00:00:00').getTime();
+  return { ini: c.inicioCreditoMs || segMs, fim: segMs + 7*86400000 + 4*3600000 };
+}
 function registrarHistoricoSemana(){
   const c = ensureCalendarioDefaults();
   if(!c.semanaRef) return null;
   const inicioMs = new Date(c.semanaRef+'T00:00:00').getTime();
-  const fimMs = inicioMs + 7*86400000;
+  const janela = janelaCreditoSemanaMs(c);
   const planejadoPorMateria = {};
   DIAS_SEMANA.forEach(d=>{
     (c.blocos[d]||[]).forEach(b=>{ planejadoPorMateria[b.si] = (planejadoPorMateria[b.si]||0) + (b.duracaoMin||30)*60; });
   });
   const estudadoPorMateria = {};
   state.sessions.forEach(s=>{
-    if(s.timestampFim>=inicioMs && s.timestampFim<fimMs){
+    if(s.timestampFim>=janela.ini && s.timestampFim<janela.fim){
       estudadoPorMateria[s.materiaIdx] = (estudadoPorMateria[s.materiaIdx]||0) + s.tempoLiquidoSegundos;
     }
   });
@@ -5484,7 +5484,13 @@ function atualizarCicloSemanaManual(){
     // registrado (+1ms) em vez de Date.now(), pra garantir que nenhuma sessao ja contabilizada
     // na rodada que esta fechando continue contando pra rodada nova.
     const maxFim = state.sessions.reduce((m,s)=> Math.max(m, s.timestampFim), c.cicloStartedAt);
-    registrarHistoricoCiclo(maxFim, false);
+    // 21/09/2026 (pedido do Bruno): encerrar o ciclo por este botao conta como ciclo completo
+    // no contador "Ciclos completos", mesmo sem todas as materias terem batido a meta ("Replanejar"
+    // nao conta - replanejarCiclo nao passa por aqui). So conta quando o fechamento gerou registro
+    // (ha sessao nova na rodada): se o fechamento automatico acabou de rodar, registrarHistoricoCiclo
+    // devolve null e nao soma de novo. O marco no historico continua "reiniciado" (completo:false)
+    // porque guarda o que ficou abaixo da meta.
+    if(registrarHistoricoCiclo(maxFim, false)) c.ciclosCompletos = (c.ciclosCompletos||0)+1;
     c.cicloStartedAt = maxFim+1;
     save();
   }
@@ -5533,14 +5539,32 @@ let _ultimoCreditoSemana = { saldoAposConsumo:{}, primeiroPendente:{} };
 function sincronizarBlocosSemana(){
   const c = ensureCalendarioDefaults();
   if(!c.semanaRef) return;
-  const inicioSemanaMs = new Date(c.semanaRef+'T00:00:00').getTime();
-  const fimSemanaMs = inicioSemanaMs + 7*86400000;
+  const { ini: inicioSemanaMs, fim: fimSemanaMs } = janelaCreditoSemanaMs(c);
   const saldoPorMateria = {};
+  const sessoesPorMateria = {};
   state.sessions.forEach(s=>{
     if(s.timestampFim>=inicioSemanaMs && s.timestampFim<fimSemanaMs){
       saldoPorMateria[s.materiaIdx] = (saldoPorMateria[s.materiaIdx]||0) + s.tempoLiquidoSegundos;
+      (sessoesPorMateria[s.materiaIdx] = sessoesPorMateria[s.materiaIdx]||[]).push(s);
     }
   });
+  Object.keys(sessoesPorMateria).forEach(si=> sessoesPorMateria[si].sort((a,b)=> a.timestampFim-b.timestampFim));
+  // 21/09/2026 (pedido do Bruno): o Calendário mostra cada bloco concluído no dia em que foi
+  // concluído (ver renderCalendario) - doneTs guarda o instante da sessão que fechou o bloco: a
+  // primeira sessão da semana em que o tempo acumulado da matéria alcança a soma dos blocos até
+  // ele (mesma ordem de crédito de abaixo). Sem sessão que explique (bloco fechado pelo atalho
+  // de cicloPct>=100 com estudo de semana anterior), cai na última sessão da semana ou agora.
+  function tsConclusao(si, acumSeg){
+    const lista = sessoesPorMateria[si];
+    if(!lista || !lista.length) return Date.now();
+    let cum = 0;
+    for(const s of lista){
+      cum += s.tempoLiquidoSegundos;
+      if(cum>=acumSeg) return s.timestampFim;
+    }
+    return lista[lista.length-1].timestampFim;
+  }
+  const acumBlocos = {};
   // Blocos ja concluidos (inclusive de antes desta chamada) tambem consomem saldo, senao o
   // mesmo tempo creditaria o bloco de novo e ainda sobraria pro proximo.
   DIAS_SEMANA.forEach(d=>{
@@ -5552,7 +5576,11 @@ function sincronizarBlocosSemana(){
   const primeiroPendente = {};
   DIAS_SEMANA.forEach(d=>{
     (c.blocos[d]||[]).forEach((b,idx)=>{
-      if(b.done) return;
+      acumBlocos[b.si] = (acumBlocos[b.si]||0) + (b.duracaoMin||30)*60;
+      if(b.done){
+        if(!b.doneTs){ b.doneTs = tsConclusao(b.si, acumBlocos[b.si]); mudou = true; }
+        return;
+      }
       // ago/2026 (bug reportado pelo Bruno): "Planejamento de Controle e Producao" batia 100% na
       // rodada do ciclo (cicloPct, medido desde cicloStartedAt) mas o bloco da semana continuava
       // pendente na tela. Causa: cicloEstudadoSegundos soma sessoes desde cicloStartedAt, que pode
@@ -5566,6 +5594,7 @@ function sincronizarBlocosSemana(){
       // como cumprido direto, sem depender do saldo restrito a semana.
       if(cicloPct(b.si)>=100){
         b.done = true;
+        b.doneTs = tsConclusao(b.si, acumBlocos[b.si]);
         mudou = true;
         return;
       }
@@ -5574,6 +5603,7 @@ function sincronizarBlocosSemana(){
       const disp = saldoPorMateria[b.si]||0;
       if(disp >= precisa){
         b.done = true;
+        b.doneTs = tsConclusao(b.si, acumBlocos[b.si]);
         saldoPorMateria[b.si] = disp - precisa;
         mudou = true;
         delete primeiroPendente[b.si]; // esse virou done - o proximo loop encontra o de verdade
@@ -5596,19 +5626,6 @@ function blocoFaltaSegundos(dia, idx, b){
     return Math.max(0, precisa-disp);
   }
   return precisa;
-}
-// Move um bloco de (fromDia,fromIdx) pra (toDia,toIdx) - usado pelo arrastar-e-soltar.
-function moveCalendarBlock(fromDia, fromIdx, toDia, toIdx){
-  const c = ensureCalendarioDefaults();
-  const origem = c.blocos[fromDia];
-  if(!origem || !origem[fromIdx]) return;
-  const bloco = origem.splice(fromIdx,1)[0];
-  const destino = c.blocos[toDia];
-  let insertAt = toIdx;
-  if(fromDia===toDia && fromIdx<toIdx) insertAt--; // remocao no mesmo dia desloca os indices depois
-  insertAt = Math.max(0, Math.min(insertAt, destino.length));
-  destino.splice(insertAt, 0, bloco);
-  save();
 }
 // Ref do bloco do calendario que originou a sessao ativa (se houver) - lida/zerada em
 // endActiveSession/cancelActiveSession, pra marcar o bloco certo como concluido quando a
@@ -5728,13 +5745,13 @@ const EXTRA_TIPS = {
   },
   calendario_semana: {
     titulo: 'Calendário da semana',
-    tooltip: 'Pega a meta de horas de cada matéria no Ciclo e distribui em blocos de 30 ou 45min ao longo dos 7 dias — por padrão, matérias com mais de 30min naquela semana já nascem em pares (dois blocos de 30min lado a lado, formando 1h). Quando o tempo que falta numa matéria não fecha num múltiplo de 30min (o Ciclo trabalha em incrementos de 15min), um dos blocos daquela matéria vira 45min em vez de 30, pra fechar o tempo certinho sem arredondar. Cada semana nova é montada olhando o que ainda falta de verdade (o déficit de cada matéria) — então o que não foi estudado numa semana automaticamente puxa mais blocos na semana seguinte, sem nunca passar do total que falta no ciclo. Arraste um bloco pra outro dia ou posição pra reorganizar sua semana; passe o mouse (ou segure) num bloco pra ver quanto falta nele. Toque num bloco pra iniciar o cronômetro daquela matéria — ele só vira concluído se o tempo líquido da sessão bater a duração cheia do bloco de uma vez (30 ou 45min; encerrou antes? o bloco continua em aberto, toque nele de novo depois pra tentar de novo). Todo tempo estudado sempre conta nas métricas gerais de Tempo e no progresso do Ciclo, tenha o bloco fechado ou não. O botão de recarregar recalcula a semana atual do zero, a partir do déficit e dos pesos de agora (isso descarta os arrastos manuais feitos nela).'
+    tooltip: 'Pega a meta de horas de cada matéria no Ciclo e divide em blocos de 30 ou 45min — por padrão, matérias com mais de 30min naquela semana já nascem em pares (dois blocos de 30min lado a lado, formando 1h). Os dias da semana começam vazios: os blocos que faltam ficam no pool "A estudar" ao lado, e cada bloco só vai pra um dia quando você o conclui, no dia em que ele foi concluído (estudo depois da meia-noite e antes das 4h ainda conta como o dia anterior). O número no topo de cada dia é quantos blocos você concluiu nele. Quando o tempo que falta numa matéria não fecha num múltiplo de 30min (o Ciclo trabalha em incrementos de 15min), um dos blocos daquela matéria vira 45min em vez de 30, pra fechar o tempo certinho sem arredondar. Cada semana nova é montada olhando o que ainda falta de verdade (o déficit de cada matéria) — então o que não foi estudado numa semana automaticamente puxa mais blocos na semana seguinte, sem nunca passar do total que falta no ciclo. Passe o mouse (ou segure) num bloco do pool pra ver quanto falta nele. Toque num bloco do pool pra iniciar o cronômetro daquela matéria — ele só vira concluído se o tempo líquido da sessão bater a duração cheia do bloco de uma vez (30 ou 45min; encerrou antes? o bloco continua em aberto, toque nele de novo depois pra tentar de novo). Todo tempo estudado sempre conta nas métricas gerais de Tempo e no progresso do Ciclo, tenha o bloco fechado ou não.'
   }
 };
 // Conteúdo da central de ajuda (Ajustes > Tutoriais) - explicações curtas de como cada
 // parte do app funciona, em formato de acordeão (mesma ideia do subj-block de Matérias).
 const TUTORIAIS = [
-  { titulo:'Como funciona o Ciclo de Estudos', texto:'Você define quantas horas quer estudar por semana; o app sugere um peso pra cada matéria com base no que falta ler, e monta uma sequência que se repete. Ao completar a sequência inteira, um novo ciclo começa. Ajuste os pesos e quais matérias entram a qualquer momento em Ciclo → Replanejar. O Calendário da semana (mesma aba) mostra essa meta já dividida em blocos de 30min pelos 7 dias, que você pode arrastar pra reorganizar.' },
+  { titulo:'Como funciona o Ciclo de Estudos', texto:'Você define quantas horas quer estudar por semana; o app sugere um peso pra cada matéria com base no que falta ler, e monta uma sequência que se repete. Ao completar a sequência inteira, um novo ciclo começa. Ajuste os pesos e quais matérias entram a qualquer momento em Ciclo → Replanejar. O Calendário da semana (mesma aba) mostra essa meta já dividida em blocos de 30min num pool; conforme você conclui cada bloco, ele vai pro dia em que foi feito.' },
   { titulo:'Como funciona a Revisão espaçada', texto:'Ao concluir a teoria de uma apostila, a primeira tarefa é fazer os exercícios dela, em até 48 horas — essa etapa se fecha sozinha quando você responde todas as questões da aula. Só então entram as 3 revisões espaçadas (padrão 7 → 15 → 30 dias), e o app já mostra todas as datas previstas no calendário. A avaliação Difícil / Médio / Fácil é só um registro: não muda o intervalo. Em "Escolher o que revisar" você filtra pelas aulas que marcou como difíceis e revisa manualmente quando quiser. Os intervalos podem ser personalizados por matéria — ao mudar, as datas já agendadas são recalculadas na hora.' },
   { titulo:'Refazer erradas x Favoritos', texto:'Refazer junta automaticamente toda questão que você já errou e ainda não domina — sai da lista sozinha quando você acerta. Favoritos é uma lista manual: você escolhe (<svg class=ic-svg aria-hidden=true><use href=#ic-star></use></svg> durante o quiz) o que quer guardar pra rever depois, tenha acertado ou errado.' },
   { titulo:'Percentual de Acerto x Taxa geral', texto:'Percentual de Acerto soma certas ÷ feitas das sessões de questões que você registrou (pode subir ou descer, reflete seu desempenho atual). A Taxa geral por tentativa soma todas as tentativas já feitas alguma vez (inclusive repetidas) e tende a cair mesmo você progredindo, porque você revisa mais as que errou — por isso não é recomendada como indicador de evolução.' },
@@ -10966,12 +10983,6 @@ function buildCicloDonutRestanteHtml(centerText){
   return `<div class="ciclo-donut" style="background:conic-gradient(${stops.join(',')});"><div class="ciclo-donut-txt">${centerText}</div></div>`;
 }
 let cicloEditMode = false;
-// 30/08/2026 (pedido do Bruno, "as materias desconfiguram quando rolo a tela"): so importa em
-// tela estreita (ver CSS .cal-dia-editar/.cal-grid.cal-editando, @media(max-width:599px)) - em
-// tela larga o arrastar sempre funcionou direto, sem modo edicao nenhum. Comeca sempre false a
-// cada visita na aba (nao precisa persistir - e' so um modo temporario de "vou reorganizar
-// agora").
-let calEditMode = false;
 function renderCicloSequencia(){
   const c = ensureCicloDefaults();
   const wrap = document.getElementById('cicloSequencia');
@@ -11468,212 +11479,86 @@ function renderCalendario(){
     grid.innerHTML = `<div class="empty">Nenhuma matéria com déficit ou peso no ciclo agora — ajuste em "Replanejar" pra gerar a semana.</div>`;
     return;
   }
-  // 30/08/2026 (pedido do Bruno, "essa visão de múltiplos dias vira o padrão no celular, sem
-  // abas"): a navegação por dia inteiro (abas Seg..Dom + "1 dia por vez") foi removida - a
-  // única visão agora é a de colunas de ~150px rolando de lado (ver CSS), tanto travada
-  // (padrão) quanto editando. A barra vira só o botão de travar/destravar - "Editar" quando
-  // travado, "Concluir" + dica quando editando (setas ‹/› continuam só no modo edição: com
-  // .cal-block em touch-action:none pra permitir o arrastar-entre-dias, tocar num bloco cheio
-  // pra tentar rolar a fileira não vira rolagem nativa - as setas garantem um jeito de rolar
-  // sem precisar achar um pedacinho vazio pra tocar).
-  if(calDiaNav){
-    calDiaNav.innerHTML = calEditMode ? `
-        <button type="button" class="cal-dia-seta" id="calDiaEditPrev" aria-label="Rolar pra esquerda">‹</button>
-        <span style="flex:1; font-size:.72rem; color:var(--text-mut); text-align:center;">Arraste as matérias entre os dias</span>
-        <button type="button" class="cal-dia-seta" id="calDiaEditNext" aria-label="Rolar pra direita">›</button>
-        <button type="button" class="cal-dia-editar ativo" id="calDiaEditarToggle" aria-label="Concluir edição" title="Concluir edição">
-          <svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg>
-        </button>` : `
-        <span style="flex:1; font-size:.72rem; color:var(--text-mut);">Arraste a tela pra ver os outros dias</span>
-        <button type="button" class="cal-dia-editar" id="calDiaEditarToggle" aria-label="Editar - arrastar matérias entre dias" title="Editar - arrastar matérias entre dias">
-          <svg class=ic-svg aria-hidden=true><use href=#ic-pencil></use></svg>
-        </button>`;
-    if(calEditMode){
-      document.getElementById('calDiaEditPrev').addEventListener('click', ()=> grid.scrollBy({left:-170, behavior:'smooth'}));
-      document.getElementById('calDiaEditNext').addEventListener('click', ()=> grid.scrollBy({left:170, behavior:'smooth'}));
-    }
-    document.getElementById('calDiaEditarToggle').addEventListener('click', ()=>{
-      calEditMode = !calEditMode;
-      renderCalendario();
+  if(calDiaNav) calDiaNav.innerHTML = `<span style="flex:1; font-size:.72rem; color:var(--text-mut);">Arraste a tela pra ver os outros dias</span>`;
+
+  // 21/09/2026 (pedido do Bruno): os dias começam vazios e o que falta estudar fica num "pool" ao
+  // lado; cada bloco só vai pra um dia quando é CONCLUÍDO, no dia de estudo em que foi concluído
+  // (doneTs, ver sincronizarBlocosSemana; usa diaEstudoDe, então estudo depois da meia-noite e
+  // antes das 4h ainda cai no dia anterior). É só a exibição - c.blocos continua sendo o mesmo
+  // plano por dia de sempre (motores de meta/peso/crédito intocados), o dia planejado só não
+  // aparece mais na tela. Estudo da madrugada de segunda (até 4h): se a semana nova ainda não foi
+  // criada, é estudo de domingo da semana em tela; se já foi criada (ver janelaCreditoSemanaMs),
+  // pertence à semana nova e o clamp abaixo joga em "Seg".
+  const dataRef = c.semanaRef || hojeSeg;
+  const inicioMs = new Date(dataRef+'T00:00:00').getTime();
+  const pendentes = [];
+  const feitosPorDia = {}; DIAS_SEMANA.forEach(d=> feitosPorDia[d] = []);
+  DIAS_SEMANA.forEach(d=>{
+    (c.blocos[d]||[]).forEach((b,idx)=>{
+      if(!b.done){ pendentes.push({ b, d, idx }); return; }
+      const off = Math.round((new Date(diaEstudoDe(b.doneTs||Date.now())+'T00:00:00').getTime() - inicioMs)/86400000);
+      feitosPorDia[DIAS_SEMANA[Math.max(0, Math.min(6, off))]].push({ b, d, idx });
     });
-  }
-  grid.classList.toggle('cal-editando', calEditMode);
-  grid.innerHTML = DIAS_SEMANA.map((d,di)=>{
-    const blocos = c.blocos[d]||[];
-    const feitos = blocos.filter(b=>b.done).length;
-    const dataDia = new Date(hojeSeg+'T00:00:00'); dataDia.setDate(dataDia.getDate()+di);
-    const corpo = blocos.length===0
-      ? `<div class="cal-day-empty">livre</div>`
-      : blocos.map((b,idx)=>{
-          const ativa = isSubjectActive(b.si);
-          const dur = b.duracaoMin||30;
-          // Duas unidades seguidas da mesma materia nasceram como par (default = 1h) - so um
-          // detalhe visual (fundem a borda entre elas), cada uma continua sendo um bloco
-          // independente pra arrastar/concluir. Blocos de 30min sao o padrao; o rotulo de
-          // duracao so aparece quando o bloco e o de 45min que fecha o tempo exato de uma
-          // materia (ver decomporMateriaEmItens).
-          const juntaAntes = idx>0 && blocos[idx-1].si===b.si;
-          const juntaDepois = idx<blocos.length-1 && blocos[idx+1].si===b.si;
-          const joinCls = (juntaAntes?' join-top':'')+(juntaDepois?' join-bottom':'');
-          // ago/2026: "faltam Xmin" agora reflete o credito cumulativo da semana (ver
-          // blocoFaltaSegundos/sincronizarBlocosSemana) - ex.: se voce ja estudou 10min dessa
-          // materia pela aba Materia, um bloco de 30min mostra "faltam 20min", e OUTRO bloco de
-          // 30min da mesma materia, na mesma semana, continua mostrando "faltam 30min" (o
-          // credito parcial vale so pro proximo bloco pendente na fila, um de cada vez).
-          const faltaSeg = blocoFaltaSegundos(d, idx, b);
-          const titulo = b.done
-            ? `${SUBJECTS[b.si].name} — concluído (${dur}min)`
-            : faltaSeg<dur*60
-              ? `${SUBJECTS[b.si].name} — faltam ${fmtDuracao(faltaSeg)} pra completar esta sessão de ${dur}min (parte já foi estudada essa semana)`
-              : `${SUBJECTS[b.si].name} — faltam ${dur}min nesta sessão`;
-          return `<div class="cal-block${joinCls}${b.done?' done':''}${ativa?'':' inativa'}" data-dia="${d}" data-idx="${idx}" data-si="${b.si}" style="--mat-cor:${subjectColor(b.si)}" title="${escapeHtml(titulo)}">
-            <span class="cal-block-nm">${escapeHtml(SUBJECTS[b.si].name)}</span>
-            ${dur!==30?`<span class="cal-block-dur">${dur}min</span>`:''}
-            ${b.done?'<svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg>':''}
-          </div>`;
-        }).join('');
-    return `<div class="cal-day-col${di===hojeIdxSemana?' hoje':''}" data-dia="${d}">
+  });
+  DIAS_SEMANA.forEach(d=> feitosPorDia[d].sort((x,y)=> (x.b.doneTs||0)-(y.b.doneTs||0)));
+
+  const pendentesSeg = pendentes.reduce((s,p)=> s + blocoFaltaSegundos(p.d, p.idx, p.b), 0);
+  const corpoPool = pendentes.length===0
+    ? `<div class="cal-day-empty">Tudo concluído nesta semana</div>`
+    : pendentes.map(({b,d,idx}, i)=>{
+        const ativa = isSubjectActive(b.si);
+        const dur = b.duracaoMin||30;
+        // Duas unidades seguidas da mesma materia nasceram como par (default = 1h) - so um
+        // detalhe visual (fundem a borda entre elas), cada uma continua sendo um bloco
+        // independente. Blocos de 30min sao o padrao; o rotulo de duracao so aparece quando o
+        // bloco e o de 45min que fecha o tempo exato de uma materia (ver decomporMateriaEmItens).
+        const juntaAntes = i>0 && pendentes[i-1].b.si===b.si;
+        const juntaDepois = i<pendentes.length-1 && pendentes[i+1].b.si===b.si;
+        const joinCls = (juntaAntes?' join-top':'')+(juntaDepois?' join-bottom':'');
+        // "faltam Xmin" reflete o credito cumulativo da semana (ver blocoFaltaSegundos) - so o
+        // primeiro bloco pendente de cada materia pode ter credito parcial.
+        const faltaSeg = blocoFaltaSegundos(d, idx, b);
+        const titulo = faltaSeg<dur*60
+          ? `${SUBJECTS[b.si].name} — faltam ${fmtDuracao(faltaSeg)} pra completar esta sessão de ${dur}min (parte já foi estudada essa semana)`
+          : `${SUBJECTS[b.si].name} — faltam ${dur}min nesta sessão`;
+        return `<div class="cal-block pool${joinCls}${ativa?'':' inativa'}" data-dia="${d}" data-idx="${idx}" data-si="${b.si}" style="--mat-cor:${subjectColor(b.si)}" title="${escapeHtml(titulo)}">
+          <span class="cal-block-nm">${escapeHtml(SUBJECTS[b.si].name)}</span>
+          ${dur!==30?`<span class="cal-block-dur">${dur}min</span>`:''}
+        </div>`;
+      }).join('');
+  const colPool = `<div class="cal-day-col cal-pool-col">
+      <div class="cal-day-hd">
+        <div class="nm">A estudar</div>
+        <div class="dt">pool da semana</div>
+        ${pendentes.length? `<div class="pg">${pendentes.length} ${pendentes.length===1?'bloco':'blocos'} · ${fmtDuracao(pendentesSeg)}</div>` : ''}
+      </div>
+      ${corpoPool}
+    </div>`;
+
+  const colsDias = DIAS_SEMANA.map((d,di)=>{
+    const feitos = feitosPorDia[d];
+    const dataDia = new Date(dataRef+'T00:00:00'); dataDia.setDate(dataDia.getDate()+di);
+    const corpo = feitos.map(({b})=>{
+      const dur = b.duracaoMin||30;
+      const hora = b.doneTs ? new Date(b.doneTs).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }) : '';
+      return `<div class="cal-block done" data-si="${b.si}" style="--mat-cor:${subjectColor(b.si)}" title="${escapeHtml(SUBJECTS[b.si].name)} — concluído${hora?' às '+hora:''} (${dur}min)">
+        <span class="cal-block-nm">${escapeHtml(SUBJECTS[b.si].name)}</span>
+        ${dur!==30?`<span class="cal-block-dur">${dur}min</span>`:''}
+        <svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg>
+      </div>`;
+    }).join('');
+    return `<div class="cal-day-col${(!desatualizado && di===hojeIdxSemana)?' hoje':''}" data-dia="${d}">
       <div class="cal-day-hd">
         <div class="nm">${DIAS_SEMANA_LABEL[d]}</div>
         <div class="dt">${String(dataDia.getDate()).padStart(2,'0')}/${String(dataDia.getMonth()+1).padStart(2,'0')}</div>
-        ${blocos.length? `<div class="pg">${feitos}/${blocos.length}</div>` : ''}
+        ${feitos.length? `<div class="pg">${feitos.length}</div>` : ''}
       </div>
       ${corpo}
     </div>`;
   }).join('');
-  wireCalendarDrag(grid);
-  // 30/08/2026 (pedido do Bruno): abre já mostrando o dia de hoje, não sempre a partir de
-  // segunda - só na primeira vez que o grid é montado nesta visita (não força a rolagem de
-  // volta toda vez que renderCalendario() roda de novo, ex. depois de concluir uma sessão -
-  // aí respeita onde o usuário rolou por conta própria).
-  if(!grid.dataset.scrollInicial){
-    grid.dataset.scrollInicial = '1';
-    const colHoje = grid.querySelector('.cal-day-col.hoje');
-    if(colHoje) colHoje.scrollIntoView({inline:'start', block:'nearest'});
-  }
-}
-// Arrastar-e-soltar dos blocos de 30min, via Pointer Events (funciona igual com mouse,
-// caneta e toque). Um toque curto sem arrastar (movimento < THRESH) conta como clique
-// normal e abre a sessão daquele bloco - ver abrirSessaoBloco.
-function wireCalendarDrag(grid){
-  const THRESH = 6;
-  let drag = null;
-  function limparIndicadores(){
-    grid.querySelectorAll('.cal-day-col.cal-drop-hover').forEach(el=>el.classList.remove('cal-drop-hover'));
-    grid.querySelectorAll('.cal-block.cal-drop-before,.cal-block.cal-drop-after').forEach(el=>el.classList.remove('cal-drop-before','cal-drop-after'));
-  }
-  // 30/08/2026 (pedido do Bruno, "ao colocar a matéria pro lado, consigo arrastar pelos
-  // dias"): no celular #calGrid rola de lado (ver CSS .cal-grid, @media(max-width:599px)) e
-  // nem todo dia cabe na tela ao mesmo tempo - sem isso, só dava pra soltar um bloco num dia
-  // que já estivesse visível de cara. Enquanto o dedo (ou o mouse) fica perto da borda
-  // esquerda/direita do grid DURANTE um arrasto em andamento, rola sozinho na direção da
-  // borda, num loop de requestAnimationFrame - continua rolando mesmo se o dedo ficar parado
-  // ali (diferente de reagir só a pointermove, que só dispara quando o dedo se MEXE).
-  const BORDA_PX = 44, VELOCIDADE = 9;
-  let autoScrollDir = 0, autoScrollRAF = null;
-  // Recalcula o alvo de solta (dia/posição embaixo do ponteiro) - extraído do pointermove
-  // pra também rodar a cada frame do auto-scroll (abaixo). Sem isso, o destaque de "vai
-  // soltar aqui" ficava parado na última posição de quando o dedo se MEXEU, mesmo com a
-  // fileira de dias continuando a rolar sozinha por baixo dele (dedo parado na borda) - ao
-  // soltar, o bloco iria pro dia errado (o de antes de rolar, não o que estava embaixo do
-  // dedo na hora de soltar de verdade).
-  function atualizarAlvoDrop(el, clientX, clientY){
-    el.style.pointerEvents = 'none';
-    const under = document.elementFromPoint(clientX, clientY);
-    el.style.pointerEvents = '';
-    limparIndicadores();
-    const col = under && under.closest ? under.closest('.cal-day-col') : null;
-    if(col){
-      col.classList.add('cal-drop-hover');
-      const alvo = under.closest('.cal-block');
-      if(alvo && alvo!==el){
-        const r = alvo.getBoundingClientRect();
-        const antes = clientY < r.top+r.height/2;
-        alvo.classList.add(antes?'cal-drop-before':'cal-drop-after');
-        drag.toDia = col.dataset.dia;
-        drag.toIdx = parseInt(alvo.dataset.idx,10) + (antes?0:1);
-      } else {
-        drag.toDia = col.dataset.dia;
-        drag.toIdx = col.querySelectorAll('.cal-block').length;
-      }
-    } else {
-      drag.toDia = null; drag.toIdx = null;
-    }
-  }
-  function autoScrollTick(){
-    if(autoScrollDir!==0 && drag){
-      grid.scrollLeft += autoScrollDir*VELOCIDADE;
-      atualizarAlvoDrop(drag.el, drag.lastX, drag.lastY);
-      autoScrollRAF = requestAnimationFrame(autoScrollTick);
-    } else {
-      autoScrollRAF = null;
-    }
-  }
-  function atualizarAutoScroll(clientX){
-    const r = grid.getBoundingClientRect();
-    autoScrollDir = clientX < r.left+BORDA_PX ? -1 : clientX > r.right-BORDA_PX ? 1 : 0;
-    if(autoScrollDir!==0 && !autoScrollRAF) autoScrollRAF = requestAnimationFrame(autoScrollTick);
-  }
-  function pararAutoScroll(){
-    autoScrollDir = 0;
-    if(autoScrollRAF){ cancelAnimationFrame(autoScrollRAF); autoScrollRAF = null; }
-  }
-  grid.querySelectorAll('.cal-block').forEach(el=>{
-    el.addEventListener('pointerdown', (e)=>{
-      if(e.button!=null && e.button!==0) return;
-      const rect = el.getBoundingClientRect();
-      drag = {
-        el, fromDia: el.dataset.dia, fromIdx: parseInt(el.dataset.idx,10),
-        startX: e.clientX, startY: e.clientY, moved:false,
-        offX: e.clientX-rect.left, offY: e.clientY-rect.top, width: rect.width,
-        toDia:null, toIdx:null, ghost:null, lastX: e.clientX, lastY: e.clientY,
-      };
-      try{ el.setPointerCapture(e.pointerId); }catch(err){}
-    });
-    el.addEventListener('pointermove', (e)=>{
-      if(!drag || drag.el!==el) return;
-      const dx = e.clientX-drag.startX, dy = e.clientY-drag.startY;
-      if(!drag.moved && Math.hypot(dx,dy)>THRESH){
-        drag.moved = true;
-        el.classList.add('cal-dragging');
-        const ghost = el.cloneNode(true);
-        ghost.classList.add('cal-drag-ghost');
-        ghost.style.width = drag.width+'px';
-        document.body.appendChild(ghost);
-        drag.ghost = ghost;
-      }
-      if(!drag.moved) return;
-      drag.lastX = e.clientX; drag.lastY = e.clientY;
-      atualizarAutoScroll(e.clientX);
-      drag.ghost.style.left = (e.clientX-drag.offX)+'px';
-      drag.ghost.style.top = (e.clientY-drag.offY)+'px';
-      atualizarAlvoDrop(el, e.clientX, e.clientY);
-    });
-    function soltar(e){
-      if(!drag || drag.el!==el) return;
-      const wasDrag = drag.moved;
-      const { fromDia, fromIdx, toDia, toIdx } = drag;
-      if(drag.ghost) drag.ghost.remove();
-      el.classList.remove('cal-dragging');
-      limparIndicadores();
-      pararAutoScroll();
-      drag = null;
-      if(wasDrag){
-        if(toDia!=null) moveCalendarBlock(fromDia, fromIdx, toDia, toIdx);
-        renderCalendario();
-      } else {
-        abrirSessaoBloco(fromDia, fromIdx);
-      }
-    }
-    el.addEventListener('pointerup', soltar);
-    el.addEventListener('pointercancel', ()=>{
-      if(!drag || drag.el!==el) return;
-      if(drag.ghost) drag.ghost.remove();
-      el.classList.remove('cal-dragging');
-      limparIndicadores();
-      pararAutoScroll();
-      drag = null;
-    });
+  grid.innerHTML = colPool + colsDias;
+  grid.querySelectorAll('.cal-block.pool').forEach(el=>{
+    el.addEventListener('click', ()=> abrirSessaoBloco(el.dataset.dia, parseInt(el.dataset.idx,10)));
   });
 }
 
