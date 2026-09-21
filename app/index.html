@@ -4013,7 +4013,7 @@ const Metricas = {
     return state.sessions.filter(s=>{
       if(s.tipo!=='questoes') return false;
       if(si!=null) return s.materiaIdx===si;
-      return isSubjectActive(s.materiaIdx);
+      return true; // todas as materias: desmarcar no ciclo nao tira das metricas (ver materiasDoCiclo)
     });
   },
   dominioQuestoes(scope){
@@ -4047,11 +4047,20 @@ const Metricas = {
   // propagar pras outras telas. materiasAtivas() preserva {s,si} na ordem bruta de SUBJECTS (a
   // mesma ordem de armazenamento); materiasAtivasOrdenadas() e a mesma lista em ordem alfabetica
   // de exibicao (ver subjectsOrdenadas). Chame uma dessas em vez de filtrar isSubjectActive na mao.
+  // 21/09/2026 (pedido do Bruno): desmarcar uma materia em Replanejar agora a tira SO do ciclo
+  // (peso, calendario, sequencia, historico de ciclos, ritmo ate a data alvo) - ela continua
+  // contando em toda metrica geral (paginas, tempo, questoes, revisoes, ranking, lista de
+  // Materias), incluindo as que ja tinham sido tiradas antes. Por isso materiasAtivas() e
+  // materiasAtivasOrdenadas() (usadas pelas metricas) devolvem TODAS as materias; quem monta o
+  // ciclo usa materiasDoCiclo() (a unica que ainda filtra por isSubjectActive).
   materiasAtivas(){
-    return SUBJECTS.map((s,si)=>({s,si})).filter(({si})=> isSubjectActive(si));
+    return SUBJECTS.map((s,si)=>({s,si}));
   },
   materiasAtivasOrdenadas(){
-    return subjectsOrdenadas().filter(({si})=> isSubjectActive(si));
+    return subjectsOrdenadas();
+  },
+  materiasDoCiclo(){
+    return SUBJECTS.map((s,si)=>({s,si})).filter(({si})=> isSubjectActive(si));
   },
 };
 
@@ -4225,7 +4234,7 @@ function sumTempo(sessions){ return sessions.reduce((s,x)=>s+x.tempoLiquidoSegun
 // "Todas as materias" aqui sempre significa "todas as materias ATIVAS no ciclo" — uma materia
 // excluida (ver isSubjectActive) nao entra nesses agregados gerais, so nas metricas de uma
 // materia especifica (tempoTotalTeoriaMateria/Apostila, que nao filtram por ativa de proposito).
-function tempoTotalTeoria(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='teoria' && isSubjectActive(s.materiaIdx))); }
+function tempoTotalTeoria(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='teoria')); }
 // 17/09/2026 (pedido do Bruno, bug reportado - "Tempo total estudado" da Semana nao batia com
 // a soma das barras de "Estudo por dia"): a barra diaria (Metricas.tempoNoDia, ver comentario
 // la) e Consistencia/streak ja tratam tempo estudado como "registro de atividade", sem filtrar
@@ -4261,7 +4270,7 @@ function tempoTotalTeoriaMateriaReal(si){
   return sumTempo(state.sessions.filter(s=> s.tipo==='teoria' && s.materiaIdx===si && !s.catchUp));
 }
 function tempoTotalTeoriaReal(){
-  return sumTempo(state.sessions.filter(s=> s.tipo==='teoria' && isSubjectActive(s.materiaIdx) && !s.catchUp));
+  return sumTempo(state.sessions.filter(s=> s.tipo==='teoria' && !s.catchUp));
 }
 function paginasViaSessoesReal(sessions){
   return sessions.reduce((sum,s)=> sum + Math.max(0, s.paginas? (s.paginas[1]-s.paginas[0]) : 0), 0);
@@ -4278,7 +4287,7 @@ function ritmoLeituraMateria(si){
 }
 function ritmoLeituraGlobal(){
   const tempo = tempoTotalTeoriaReal();
-  const paginas = paginasViaSessoesReal(state.sessions.filter(s=> s.tipo==='teoria' && isSubjectActive(s.materiaIdx) && !s.catchUp));
+  const paginas = paginasViaSessoesReal(state.sessions.filter(s=> s.tipo==='teoria' && !s.catchUp));
   return paginas>0? tempo/paginas : null;
 }
 // ritmo "efetivo": usa o historico da propria apostila; se nao houver, cai pro nivel
@@ -4296,7 +4305,7 @@ function questoesRespondidasNaSessao(s){
   if(s.questoesManual) return s.questoesManual.count;
   return 0;
 }
-function tempoTotalQuestoes(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='questoes' && isSubjectActive(s.materiaIdx))); }
+function tempoTotalQuestoes(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='questoes')); }
 function tempoTotalQuestoesTodas(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='questoes')); }
 function tempoTotalQuestoesMateria(si, sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='questoes' && s.materiaIdx===si)); }
 function tempoTotalQuestoesApostila(si,ai, sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='questoes' && s.materiaIdx===si && s.apostilaIdx===ai)); }
@@ -4305,7 +4314,7 @@ function tempoTotalQuestoesApostila(si,ai, sessions){ return sumTempo((sessions|
    Sessoes do tipo 'revisao' (iniciadas pelo botao "Revisar" na aba Revisão). Elas NAO
    entram em tempoTotalTeoria nem em tempoTotalQuestoes - tem as suas proprias funcoes -
    mas entram no consolidado (tempoTotalGeral) e nas horas da materia dentro do ciclo. */
-function tempoTotalRevisao(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='revisao' && isSubjectActive(s.materiaIdx))); }
+function tempoTotalRevisao(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='revisao')); }
 function tempoTotalRevisaoTodas(sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='revisao')); }
 function tempoTotalRevisaoMateria(si, sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='revisao' && s.materiaIdx===si)); }
 function tempoTotalRevisaoApostila(si,ai, sessions){ return sumTempo((sessions||state.sessions).filter(s=>s.tipo==='revisao' && s.materiaIdx===si && s.apostilaIdx===ai)); }
@@ -4482,7 +4491,6 @@ function sessionsInWindow(tipo, days, offsetDays){
   const start = addDays(end, -(days-1));
   return state.sessions.filter(s=>{
     if(s.tipo!==tipo) return false;
-    if(!isSubjectActive(s.materiaIdx)) return false;
     const d = diaEstudoDe(s.timestampFim);
     return d>=start && d<=end;
   });
@@ -4677,10 +4685,10 @@ function ensureCicloDefaults(){
   }
   return c;
 }
-// Uma materia pode ser excluida do ciclo (aba Planejamento). Isso vale pro app inteiro: ela
-// some do ciclo E de toda metrica agregada "todas as materias" (progresso geral, Taxa de
-// Dominio geral, tempo total, distribuicao, ranking, etc.) — como se nao fizesse mais parte
-// do edital que voce esta acompanhando. Sem ciclo configurado ainda, todas contam normalmente.
+// Uma materia pode ser excluida do ciclo (aba Planejamento). Desde 21/09/2026 isso vale SO pro
+// ciclo (peso, calendario, sequencia, historico de ciclos - ver Metricas.materiasDoCiclo): a
+// materia continua contando em toda metrica geral (progresso, Taxa de Dominio, tempo total,
+// distribuicao, ranking, lista de Materias etc.). Sem ciclo configurado, todas estao no ciclo.
 function isSubjectActive(si){
   const c = state.ciclo;
   if(!c || !c.materiasAtivas) return true;
@@ -4875,7 +4883,7 @@ function registrarHistoricoCiclo(fimTs, completo){
   if(!Array.isArray(state.historicoCiclos)) state.historicoCiclos = [];
   const desvios = {};
   const atrasadas = [];
-  Metricas.materiasAtivas().forEach(({s,si})=>{
+  Metricas.materiasDoCiclo().forEach(({s,si})=>{
     const meta = cicloMetaSegundos(si);
     if(meta<=0) return;
     const estudado = cicloEstudadoSegundos(si);
@@ -5225,7 +5233,7 @@ function gerarSemanaCalendario(forcar){
     return;
   }
   const itensPorMateria = {};
-  Metricas.materiasAtivas().forEach(({si})=>{
+  Metricas.materiasDoCiclo().forEach(({si})=>{
     if(getCicloPeso(si)<=0) return;
     const minutosMateria = Math.round(cicloMetaSegundos(si)/60); // mesma meta da Sequência de Estudos, em minutos
     const lista = decomporMateriaEmItens(si, minutosMateria);
@@ -6839,7 +6847,6 @@ function buildRankingHtml(){
   }).join('');
 }
 function buildProgressoMateriasHtml(){
-  // So matérias ativas — as fora do ciclo somem daqui (e do total abaixo) até serem reativadas.
   const rows = Metricas.materiasAtivasOrdenadas().map(({s,si})=>{
     const subjTotalPages = totalTheoryForSubject(si);
     const subjReadPages = pagesReadForSubject(si);
@@ -7520,9 +7527,7 @@ function renderMateriasGrid(filter){
     cards.appendChild(card);
   });
   if(n===0){
-    grid.innerHTML = SUBJECTS.some((s,si)=>isSubjectActive(si))
-      ? `<div class="empty">Nenhuma matéria encontrada para "${escapeHtml(filter)}".</div>`
-      : `<div class="empty">Nenhuma matéria ativa no momento. Reative alguma em Ciclo → Replanejar pra ela voltar a aparecer aqui.</div>`;
+    grid.innerHTML = `<div class="empty">Nenhuma matéria encontrada para "${escapeHtml(filter)}".</div>`;
     return;
   }
   grid.appendChild(cards);
@@ -7699,7 +7704,6 @@ function renderAulasDaMateria(siAlvo, filter){
   wrap.innerHTML = "";
   SUBJECTS.forEach((s,si)=>{
     if(si!==siAlvo) return;
-    if(!isSubjectActive(si)) return; // materia removida do ciclo tambem some da lista de Materias
     const matchSubj = s.name.toLowerCase().includes(filter);
     const aulasOrdenadas = ordenarAulasParaExibicao(s.aulas);
     const filteredAulas = aulasOrdenadas.filter(x=> matchSubj || x.a.toLowerCase().includes(filter));
@@ -10252,7 +10256,6 @@ function computeFirstTryRate(){
   const qsi = qidSubjectMap();
   Object.entries(state.questions||{}).forEach(([qid,r])=>{
     const si = qsi[qid];
-    if(si!=null && !isSubjectActive(si)) return;
     if(r && r.firstTryCorrect!==undefined){ seen++; if(r.firstTryCorrect) correct++; }
   });
   return { seen, correct, pct: seen? Math.round(correct/seen*100) : null };
@@ -11114,7 +11117,7 @@ function renderCicloRitmoAlvo(){
   const c = state.ciclo;
   if(!c || !c.horasPorSemana){ wrap.innerHTML = ''; return; }
   let totalPendenteHoras = 0;
-  Metricas.materiasAtivas().forEach(({si})=>{ totalPendenteHoras += pesoSugerido(si); });
+  Metricas.materiasDoCiclo().forEach(({si})=>{ totalPendenteHoras += pesoSugerido(si); });
   if(totalPendenteHoras<=0){
     wrap.innerHTML = `<div class="meta-alvo-block"><div class="lbl">Ritmo até a data alvo</div><div class="sub">Nada pendente nas matérias ativas do ciclo agora.</div></div>`;
     return;
