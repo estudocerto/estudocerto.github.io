@@ -3915,14 +3915,25 @@ function _paginasPorDiaMap(){
 // pro streak e pro calendario mensal. Um cronometro iniciado e nunca terminado, sem nenhuma
 // outra atividade naquele dia, NAO conta (decisao do Bruno, 19/08/2026) - so o que de fato
 // aconteceu e registrado em algum lugar entra aqui.
+// 21/09/2026 (bug reportado pelo Bruno: sabado 19 aparecia como estudado no streak/calendario sem
+// ele ter estudado): reviewHistory/provas guardam d = dia-CALENDARIO (e' agendamento - ver
+// diaEstudoDe), entao uma etapa de exercicios concluida as 03h17 de sabado entrava como dia 19,
+// enquanto as sessoes da mesma madrugada (diaEstudoDe) ja contavam como sexta. So pra ATIVIDADE,
+// aplica o corte das 4h ao instante do registro, que o id (uid = Date.now() em base 36 + sufixo)
+// carrega; se o id nao decodificar pra uma data coerente com d, mantem d.
+function _diaAtividadeDe(reg){
+  const ms = parseInt(String(reg.id||'').slice(0,8), 36);
+  if(ms>1.5e12 && ms<4e12 && dataLocalDe(ms)===reg.d) return diaEstudoDe(ms);
+  return reg.d;
+}
 function _diasComAtividadeSet(){
   if(_metricasDiasCache && _metricasDiasCacheV===_metricasVersion) return _metricasDiasCache;
   const set = new Set();
   state.sessions.forEach(s=> set.add(diaEstudoDe(s.timestampFim)));
   Object.keys(_paginasPorDiaMap()).forEach(d=>{ if(_paginasPorDiaMap()[d]>0) set.add(d); });
   (state.answerLog||[]).forEach(a=> set.add(a.d));
-  Object.values(state.aulas||{}).forEach(rec=> (rec.reviewHistory||[]).forEach(h=> set.add(h.d)));
-  Object.values(state.provas||{}).forEach(p=> (p.historico||[]).forEach(h=> set.add(h.d)));
+  Object.values(state.aulas||{}).forEach(rec=> (rec.reviewHistory||[]).forEach(h=> set.add(_diaAtividadeDe(h))));
+  Object.values(state.provas||{}).forEach(p=> (p.historico||[]).forEach(h=> set.add(_diaAtividadeDe(h))));
   _metricasDiasCache = set;
   _metricasDiasCacheV = _metricasVersion;
   return set;
