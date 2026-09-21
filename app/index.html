@@ -11201,6 +11201,21 @@ function renderCicloHistorico(){
     });
   });
 }
+// 21/09/2026: restauracao unica dos pesos manuais que o Bruno definiu em Replanejar em 17/09 (01h45)
+// e que o "Atualizar ciclo" de 21/09 (00h28) apagou (o botao descartava todo peso manual - ver
+// recalcularPesosCiclo). Valores lidos do historico na nuvem (progress_history). So restaura se
+// NAO houver peso manual agora (nao sobrescreve nada que ele tenha refeito), e regenera a semana
+// atual, que tinha sido montada com os pesos recalculados.
+function restaurarPesosManuaisDe1709(){
+  const c = state.ciclo;
+  if(!c || c.restauracaoPesos1709) return;
+  c.restauracaoPesos1709 = true;
+  if(c.pesos && Object.keys(c.pesos).length){ save(); return; }
+  c.pesos = { 0:6, 1:2, 2:4.3, 3:4.4, 4:4.4, 5:10, 10:10, 11:10, 12:10, 14:10 };
+  c.pesoSnapshot = {};
+  save();
+  gerarSemanaCalendario(true);
+}
 function renderPlanejamento(){
   const setupEl = document.getElementById('cicloSetup');
   const mainEl = document.getElementById('cicloMain');
@@ -11209,6 +11224,7 @@ function renderPlanejamento(){
     mainEl.style.display = 'none';
     return;
   }
+  restaurarPesosManuaisDe1709();
   checkCicloCompletion(); // resolve o fechamento automatico caso todas as materias ja tenham batido a meta
   setupEl.style.display = 'none';
   mainEl.style.display = '';
