@@ -4067,10 +4067,10 @@ const Metricas = {
 /* ===================== SESSÕES DE ESTUDO / CRONÔMETRO ===================== */
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 
-function startSession(si, ai, tipo){
+function startSession(si, ai, tipo, escolhaAdiada){
   if(state.activeSession){ toast('Já existe uma sessão em andamento. Encerre-a antes de iniciar outra.'); return false; }
   state.activeSession = {
-    id: uid(), si, ai, tipo, // tipo: 'teoria' | 'questoes'
+    id: uid(), si, ai, tipo, // tipo: 'teoria' | 'questoes' | 'revisao'
     startedAt: Date.now(),
     accumulatedMs: 0,
     paused: false,
@@ -4078,9 +4078,19 @@ function startSession(si, ai, tipo){
     // Continuidade de leitura: 1ª sessão desta aula sugere página 1 (não 0);
     // da 2ª sessão em diante, sugere a última página final registrada
     // (pagesReadFor reflete o `fim` da sessão anterior, gravado em setPagesRead).
-    paginaInicio: tipo==='teoria' ? (pagesReadFor(si,ai) > 0 ? pagesReadFor(si,ai) : 1) : null,
+    // 22/09/2026 (pedido do Bruno): sempre calculado agora, independente do tipo - a tela de
+    // Iniciar sessão deixou de perguntar teoria/questões (ver openStartSessionModal/
+    // escolhaAdiada abaixo), entao o tipo so eh decidido no fim; ter paginaInicio pronto de
+    // qualquer forma deixa o campo "pagina inicial" certo em QUALQUER escolha final.
+    paginaInicio: (pagesReadFor(si,ai) > 0 ? pagesReadFor(si,ai) : 1),
     questoesIdsCollected: [],
     modo: 'pomodoro', // sessão padrão: Pomodoro (30min foco + 10min intervalo, configurável em Ajustes)
+    // true quando a sessao nasceu da tela generica "Iniciar sessao" (Materias/Calendario), que
+    // nao pergunta mais teoria/questoes no inicio - a escolha (e os campos de cada lado) so
+    // aparecem ao encerrar (ver openEndSessionModal). Sessoes que ja nascem com proposito fixo
+    // (revisao espacada, "Registrar questoes feitas" da etapa de Exercicios) continuam sem essa
+    // flag e mantem a tela de encerramento única de sempre, sem o alternador.
+    escolhaAdiada: !!escolhaAdiada,
   };
   sessionOverlayMinimized = false; // toda sessão nova abre na tela central, não minimizada
   // 19/08/2026 (decisao do Bruno): antes, o dia era marcado "estudado" ja no INICIO do
@@ -4145,8 +4155,9 @@ function noteQuestionAnsweredInActiveSession(qid){
   }
 }
 function endActiveSession(extra){
-  // extra: { paginaFim, exercicios:{count,correct,wrongNums} } para teoria, ou
-  // { questoesCount, questoesCorrect } (fallback manual) para questoes
+  // extra: { paginaFim, catchUp, exercicios:{count,correct,wrongNums} } para teoria, ou
+  // { questoesCount, questoesCorrect, questoesWrongNums, paginasExtra:{inicio,fim,catchUp} }
+  // (fallback manual) para questoes
   const a = state.activeSession;
   if(!a) return null;
   stopAlarmLoop(); // sessao encerrada nao deixa alarme tocando sozinho (ver ALARME SONORO DO CRONOMETRO)
@@ -4194,6 +4205,22 @@ function endActiveSession(extra){
       origem: 'manual',
       catchUp: false,
     });
+  }
+  // 22/09/2026 (pedido do Bruno): espelho do bloco acima, na direção oposta - quando "Questões"
+  // foi a escolha PRINCIPAL desta sessão mas ele também leu teoria nela (extra.paginasExtra, ver
+  // openEndSessionModal), cria uma sessão de teoria IRMÃ, sem tempo próprio (o cronômetro já
+  // contou pro lado Questões), só pra registrar as páginas lidas.
+  if(a.tipo==='questoes' && extra && extra.paginasExtra && extra.paginasExtra.fim>extra.paginasExtra.inicio){
+    const pe = extra.paginasExtra;
+    state.sessions.push({
+      id: uid(), materiaIdx: a.si, apostilaIdx: a.ai, tipo: 'teoria',
+      timestampInicio: Date.now(), timestampFim: Date.now(),
+      tempoLiquidoSegundos: 0,
+      paginas: [pe.inicio, pe.fim], questoesIds: null, questoesManual: null,
+      origem: 'manual',
+      catchUp: !!pe.catchUp,
+    });
+    setPagesRead(a.si, a.ai, pe.fim, {catchUp: !!pe.catchUp});
   }
   state.activeSession = null;
   // ago/2026 (bug reportado pelo Bruno): antes, so a sessao nascida de um clique NUM BLOCO
@@ -10672,29 +10699,31 @@ document.querySelectorAll('#stovModes .stov-mode-btn').forEach(btn=>{
   });
 });
 
+// 22/09/2026 (pedido do Bruno): a tela de Iniciar sessão parou de perguntar Teoria/Questões -
+// essa escolha (e os campos de cada lado) só aparece ao ENCERRAR (ver openEndSessionModal),
+// porque na prática só dá pra saber o que foi feito depois. Em troca, ganhou um seletor de
+// aula/apostila (dentro da MESMA matéria, ai é só a sugestão inicial - normalmente a aula que
+// foi clicada, ou proximaAulaPendenteMateria no caso de um bloco do Calendário) - trocar a aula
+// aqui é seguro: Ciclo/Calendário creditam tempo por MATÉRIA, não por aula (ver
+// sincronizarBlocosSemana), então mudar qual aula da mesma matéria não afeta nada além de qual
+// apostila recebe as páginas/questões registradas no fim.
 function openStartSessionModal(si, ai, calendarRef){
   if(state.activeSession){ toast('Encerre a sessão em andamento antes de iniciar outra.'); return; }
   const body = document.getElementById('startSessionBody');
-  let tipoSel = 'teoria';
+  const aulaOpts = SUBJECTS[si].aulas.map((a,i)=>{
+    const rec = state.aulas[key(si,i)];
+    return `<option value="${i}" ${i===ai?'selected':''}>${rec&&rec.studied?'✓ ':''}Aula ${escapeHtml(a)}</option>`;
+  }).join('');
   body.innerHTML = `
     <div class="form-row">
-      <label>${SUBJECTS[si].name} · Aula ${SUBJECTS[si].aulas[ai]}</label>
-      <div class="radio-group" id="startTipoGroup">
-        <div class="radio-opt sel" data-tipo="teoria"><svg class=ic-svg aria-hidden=true><use href=#ic-book-open></use></svg> Teoria (apostila)</div>
-        <div class="radio-opt" data-tipo="questoes"><svg class=ic-svg aria-hidden=true><use href=#ic-quiz></use></svg> Questões</div>
-      </div>
+      <label>${escapeHtml(SUBJECTS[si].name)}</label>
+      <select id="startAulaSel">${aulaOpts}</select>
     </div>
     <button class="btn block" id="startSessionGo"><svg class=ic-svg aria-hidden=true><use href=#ic-play></use></svg> Iniciar cronômetro</button>
   `;
-  body.querySelectorAll('#startTipoGroup .radio-opt').forEach(opt=>{
-    opt.addEventListener('click', ()=>{
-      body.querySelectorAll('#startTipoGroup .radio-opt').forEach(o=>o.classList.remove('sel'));
-      opt.classList.add('sel');
-      tipoSel = opt.dataset.tipo;
-    });
-  });
   document.getElementById('startSessionGo').addEventListener('click', ()=>{
-    if(startSession(si, ai, tipoSel)){
+    const aiSel = parseInt(document.getElementById('startAulaSel').value,10);
+    if(startSession(si, aiSel, 'teoria', true)){
       activeSessionCalendarRef = calendarRef || null;
     }
     closeStartSessionModal();
@@ -10715,12 +10744,14 @@ function openEndSessionModal(){
   pauseActiveSession(); // congela o tempo enquanto o formulario esta aberto
   renderTimerBar();
   const body = document.getElementById('endSessionBody');
-  const theory = a.tipo==='teoria'? theoryPages(a.si,a.ai) : null;
-  let html = `<div class="form-row"><label>Tempo registrado</label><div style="font-size:1.6rem; font-weight:800; color:var(--green-dark);">${fmtHMS(activeSessionElapsedMs()/1000)}</div></div>`;
+  const tempoHtml = `<div class="form-row"><label>Tempo registrado</label><div style="font-size:1.6rem; font-weight:800; color:var(--green-dark);">${fmtHMS(activeSessionElapsedMs()/1000)}</div></div>`;
+
   if(a.tipo==='revisao'){
+    // Sessão de revisão espaçada - fluxo próprio, sem relação com o alternador
+    // Teoria/Questões abaixo (nunca nasce via a tela genérica de Iniciar sessão).
     const rec = state.aulas[key(a.si,a.ai)];
     const etapa = etapaRotulo(rec ? Math.min(rec.stage||0, getSubjectStages(a.si).length) : 1, true);
-    html += `
+    let html = tempoHtml + `
       <div class="form-row">
         <label>Revisão de</label>
         <div style="font-size:.9rem; font-weight:700;">${escapeHtml(SUBJECTS[a.si].name)} · Aula ${escapeHtml(SUBJECTS[a.si].aulas[a.ai])}</div>
@@ -10734,9 +10765,62 @@ function openEndSessionModal(){
           <button class="rev-q facil" data-q="facil" title="Registra que esta aula foi fácil (não muda o intervalo)">Fácil</button>
         </div>
         <div style="font-size:.72rem; color:var(--text-mut); margin-top:8px;">O tempo desta sessão conta nas horas de ${escapeHtml(SUBJECTS[a.si].name)} no Ciclo de Estudos.</div>
-      </div>`;
-  } else if(a.tipo==='teoria'){
+      </div>
+      <button class="btn block" id="endSessionGo"><svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg> Encerrar sessão</button>
+      <div style="font-size:.72rem; color:var(--text-mut); text-align:center; margin-top:8px;">Encerrar sem escolher registra só o tempo, sem dar baixa na revisão.</div>`;
+    body.innerHTML = html;
+    let qualidadeEscolhida = null;
+    function finalizarRevisao(){
+      const extra = {};
+      if(qualidadeEscolhida) extra.qualidadeRevisao = qualidadeEscolhida;
+      endActiveSession(extra);
+      closeEndSessionModal(true);
+      renderTimerBar();
+      renderAll();
+      // Na revisao avaliada, o completeReview ja mostrou um toast com a proxima data.
+      if(!qualidadeEscolhida) toast('Sessão registrada ');
+    }
+    document.querySelectorAll('#endRevQual .rev-q').forEach(b=>{
+      b.addEventListener('click', ()=>{ qualidadeEscolhida = b.dataset.q; finalizarRevisao(); });
+    });
+    document.getElementById('endSessionGo').addEventListener('click', finalizarRevisao);
+    document.getElementById('endSessionOverlay').classList.add('show');
+    return;
+  }
+
+  // 22/09/2026 (pedido do Bruno): a tela de Iniciar sessão parou de perguntar Teoria/Questões
+  // (ver openStartSessionModal) - quando a sessão nasceu assim (a.escolhaAdiada), a escolha
+  // aparece só aqui, no fim, com "Teoria" marcado por padrão; trocar pra "Questões" troca os
+  // campos abaixo, mas cada lado continua deixando registrar um pouco do outro (Teoria ganhou
+  // a "Seção de exercícios"; Questões ganha "páginas de teoria lidas" aqui embaixo) - ele pediu
+  // pra poder lançar os dois de uma sessão só, não só um OU outro. Sessões que já nascem com um
+  // propósito fixo (revisão - tratada acima -, ou "Registrar questões feitas" da etapa de
+  // Exercícios) continuam sem esse alternador, direto no tipo que já tinham.
+  let tipoFinal = a.escolhaAdiada ? 'teoria' : a.tipo;
+  let html = tempoHtml;
+  if(a.escolhaAdiada){
     html += `
+      <div class="form-row">
+        <label>${escapeHtml(SUBJECTS[a.si].name)} · Aula ${escapeHtml(SUBJECTS[a.si].aulas[a.ai])}</label>
+        <div class="radio-group" id="endTipoGroup">
+          <div class="radio-opt${tipoFinal==='teoria'?' sel':''}" data-tipo="teoria"><svg class=ic-svg aria-hidden=true><use href=#ic-book-open></use></svg> Teoria (apostila)</div>
+          <div class="radio-opt${tipoFinal==='questoes'?' sel':''}" data-tipo="questoes"><svg class=ic-svg aria-hidden=true><use href=#ic-quiz></use></svg> Questões</div>
+        </div>
+      </div>`;
+  }
+  html += `<div id="endTipoFields"></div>
+    <button class="btn block" id="endSessionGo"><svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg> Encerrar sessão</button>`;
+  body.innerHTML = html;
+  const fieldsWrap = document.getElementById('endTipoFields');
+  let endExercBlockEl = null; // sub-bloco de exercícios (lado Teoria) - setado quando montado
+
+  // Lado TEORIA: página inicial/final + "já vi antes" + a "Seção de exercícios" opcional (ver
+  // pedido de 22/09/2026 mais acima) - mesmo mecanismo (total declarado + marcar quais errou,
+  // acertos calculados sozinhos) já usado em qualquer sessão de questões. Vira uma sessão extra
+  // criada em endActiveSession (ver extra.exercicios).
+  function renderTeoriaFields(){
+    const theory = theoryPages(a.si,a.ai);
+    fieldsWrap.innerHTML = `
       <div class="form-row-2">
         <div class="form-row"><label>Página inicial</label><input type="number" id="endPagIni" value="${a.paginaInicio||0}" min="0" max="${theory}"></div>
         <div class="form-row"><label>Página final</label><input type="number" id="endPagFim" value="${a.paginaInicio||0}" min="0" max="${theory}"></div>
@@ -10752,47 +10836,8 @@ function openEndSessionModal(){
         <button type="button" class="btn sm ghost" id="endExercToggleBtn"><svg class=ic-svg aria-hidden=true><use href=#ic-pencil></use></svg> Seção de exercícios</button>
       </div>
       <div id="endExercBlock" style="display:none;"></div>`;
-  } else {
-    const autoCount = a.questoesIdsCollected.length;
-    if(autoCount>0){
-      html += `<div class="form-row"><label>Questões respondidas nesta sessão</label><div style="font-size:1.2rem; font-weight:800;">${autoCount} (detectadas automaticamente pelo quiz)</div></div>`;
-    } else {
-      html += `
-      <div class="form-row"><label>Quantas questões você respondeu</label><input type="number" id="endQCount" value="0" min="0"></div>
-      <div style="font-size:.74rem; color:var(--text-mut); margin-bottom:12px;">Preencha se você resolveu questões fora do quiz do app (ex: no papel). Toque abaixo em quais errou - os acertos são calculados sozinhos.</div>
-      ${buildFlagsGridHtml(a.si, a.ai)}
-      <div class="form-row"><small id="endQCorrectPreview" style="color:var(--text-mut);"></small></div>`;
-    }
-  }
-  html += `<button class="btn block" id="endSessionGo"><svg class=ic-svg aria-hidden=true><use href=#ic-check></use></svg> Encerrar sessão</button>`;
-  if(a.tipo==='revisao'){
-    html += `<div style="font-size:.72rem; color:var(--text-mut); text-align:center; margin-top:8px;">Encerrar sem escolher registra só o tempo, sem dar baixa na revisão.</div>`;
-  }
-  body.innerHTML = html;
-  if(a.tipo==='questoes' && a.questoesIdsCollected.length===0){
-    wireFlagsGrid(body);
-    // 01/09/2026: previa "certas = feitas - erradas" ao vivo, conforme ele digita/toca -
-    // só pra deixar visível que o cálculo é automático (não entra em nenhum estado ainda).
-    const previewEl = document.getElementById('endQCorrectPreview');
-    const countInp = document.getElementById('endQCount');
-    function atualizarPreview(){
-      const feitas = parseInt(countInp.value,10)||0;
-      const erradas = body.querySelectorAll('.flag-num-btn.flagged').length;
-      previewEl.textContent = `Certas (calculado): ${Math.max(0,feitas-erradas)} · Erradas: ${erradas}`;
-    }
-    countInp.addEventListener('input', atualizarPreview);
-    body.querySelectorAll('.flag-num-btn').forEach(b=> b.addEventListener('click', atualizarPreview));
-    atualizarPreview();
-  }
-  // 22/09/2026 (pedido do Bruno): ao encerrar uma sessão de TEORIA, opção pra já registrar
-  // exercícios desta apostila junto - mesmo mecanismo (total declarado + marcar quais errou,
-  // acertos calculados sozinhos) já usado na etapa de Exercícios/sessão de questões avulsa, só
-  // que sem precisar abrir uma sessão à parte. Some pro progresso de Exercícios (Revisão) via
-  // uma sessão extra de questões criada em endActiveSession (ver extra.exercicios).
-  let endExercBlockEl = null;
-  if(a.tipo==='teoria'){
-    const exercBtn = document.getElementById('endExercToggleBtn');
     endExercBlockEl = document.getElementById('endExercBlock');
+    const exercBtn = document.getElementById('endExercToggleBtn');
     function renderEndExercFields(){
       const total = getAula(a.si,a.ai).questoesTotalManual||0;
       endExercBlockEl.innerHTML = `
@@ -10828,22 +10873,76 @@ function openEndSessionModal(){
     });
   }
 
-  // Na sessao de revisao, os tres botoes funcionam como "encerrar avaliando": escolher
-  // uma opcao ja fecha a sessao e da baixa na revisao de uma vez so.
-  let qualidadeEscolhida = null;
-  if(a.tipo==='revisao'){
-    document.querySelectorAll('#endRevQual .rev-q').forEach(b=>{
-      b.addEventListener('click', ()=>{
-        qualidadeEscolhida = b.dataset.q;
-        finalizar();
+  // Lado QUESTÕES: "quantas respondeu" + marcar quais errou (como já era) e, só quando a escolha
+  // foi adiada (ver comentário acima), também as páginas de teoria lidas nesta mesma sessão -
+  // pedido do Bruno pra continuar dando pra registrar teoria mesmo escolhendo "Questões" aqui.
+  function renderQuestoesFields(){
+    const autoCount = a.questoesIdsCollected.length;
+    let inner = '';
+    if(autoCount>0){
+      inner += `<div class="form-row"><label>Questões respondidas nesta sessão</label><div style="font-size:1.2rem; font-weight:800;">${autoCount} (detectadas automaticamente pelo quiz)</div></div>`;
+    } else {
+      inner += `
+      <div class="form-row"><label>Quantas questões você respondeu</label><input type="number" id="endQCount" value="0" min="0"></div>
+      <div style="font-size:.74rem; color:var(--text-mut); margin-bottom:12px;">Preencha se você resolveu questões fora do quiz do app (ex: no papel). Toque abaixo em quais errou - os acertos são calculados sozinhos.</div>
+      ${buildFlagsGridHtml(a.si, a.ai)}
+      <div class="form-row"><small id="endQCorrectPreview" style="color:var(--text-mut);"></small></div>`;
+    }
+    if(a.escolhaAdiada){
+      const theory = theoryPages(a.si,a.ai);
+      inner += `
+      <div class="form-row" style="margin-top:10px;">
+        <label style="font-size:.72rem;">Também leu teoria nesta sessão? Página inicial/final (opcional - deixe igual se não leu)</label>
+      </div>
+      <div class="form-row-2">
+        <div class="form-row"><label>Página inicial</label><input type="number" id="endPagIniQ" value="${a.paginaInicio||0}" min="0" max="${theory}"></div>
+        <div class="form-row"><label>Página final</label><input type="number" id="endPagFimQ" value="${a.paginaInicio||0}" min="0" max="${theory}"></div>
+      </div>
+      <div style="font-size:.74rem; color:var(--text-mut); margin-bottom:12px;">Esta apostila tem ${theory} páginas de teoria no total.</div>
+      <div class="form-row">
+        <label class="checkbox-row" style="display:flex; align-items:flex-start; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="endCatchUpChkQ" style="margin-top:3px;">
+          <span>Revisão rápida — já vi esse conteúdo antes<br><span style="font-size:.74rem; color:var(--text-mut);">Conta tempo de estudo e marca a aula como concluída, mas não conta no ritmo de páginas/dia.</span></span>
+        </label>
+      </div>`;
+    }
+    fieldsWrap.innerHTML = inner;
+    if(autoCount===0){
+      wireFlagsGrid(fieldsWrap);
+      // 01/09/2026: previa "certas = feitas - erradas" ao vivo, conforme ele digita/toca -
+      // só pra deixar visível que o cálculo é automático (não entra em nenhum estado ainda).
+      const previewEl = document.getElementById('endQCorrectPreview');
+      const countInp = document.getElementById('endQCount');
+      function atualizarPreview(){
+        const feitas = parseInt(countInp.value,10)||0;
+        const erradas = fieldsWrap.querySelectorAll('.flag-num-btn.flagged').length;
+        previewEl.textContent = `Certas (calculado): ${Math.max(0,feitas-erradas)} · Erradas: ${erradas}`;
+      }
+      countInp.addEventListener('input', atualizarPreview);
+      fieldsWrap.querySelectorAll('.flag-num-btn').forEach(b=> b.addEventListener('click', atualizarPreview));
+      atualizarPreview();
+    }
+  }
+
+  function renderTipoFields(){
+    if(tipoFinal==='teoria') renderTeoriaFields(); else renderQuestoesFields();
+  }
+  renderTipoFields();
+  if(a.escolhaAdiada){
+    document.querySelectorAll('#endTipoGroup .radio-opt').forEach(opt=>{
+      opt.addEventListener('click', ()=>{
+        document.querySelectorAll('#endTipoGroup .radio-opt').forEach(o=>o.classList.remove('sel'));
+        opt.classList.add('sel');
+        tipoFinal = opt.dataset.tipo;
+        renderTipoFields();
       });
     });
   }
+
   function finalizar(){
     let extra = {};
-    if(a.tipo==='revisao'){
-      if(qualidadeEscolhida) extra.qualidadeRevisao = qualidadeEscolhida;
-    } else if(a.tipo==='teoria'){
+    a.tipo = tipoFinal; // aplica a escolha feita agora (sem efeito quando não era escolhaAdiada)
+    if(tipoFinal==='teoria'){
       extra.paginaFim = parseInt(document.getElementById('endPagFim').value,10)||0;
       extra.catchUp = document.getElementById('endCatchUpChk').checked;
       const exercCountInp = document.getElementById('endExercCount');
@@ -10854,18 +10953,26 @@ function openEndSessionModal(){
           extra.exercicios = { count, wrongNums: erradasNesta, correct: Math.max(0, count-erradasNesta.length) };
         }
       }
-    } else if(a.questoesIdsCollected.length===0){
-      extra.questoesCount = parseInt(document.getElementById('endQCount').value,10)||0;
-      const erradasNesta = saveFlaggedErradas(a.si, a.ai, body);
-      extra.questoesWrongNums = erradasNesta;
-      extra.questoesCorrect = Math.max(0, extra.questoesCount - erradasNesta.length);
+    } else {
+      if(a.questoesIdsCollected.length===0){
+        extra.questoesCount = parseInt(document.getElementById('endQCount').value,10)||0;
+        const erradasNesta = saveFlaggedErradas(a.si, a.ai, fieldsWrap);
+        extra.questoesWrongNums = erradasNesta;
+        extra.questoesCorrect = Math.max(0, extra.questoesCount - erradasNesta.length);
+      }
+      const pagIniQ = document.getElementById('endPagIniQ');
+      const pagFimQ = document.getElementById('endPagFimQ');
+      if(pagIniQ && pagFimQ){
+        const fim = parseInt(pagFimQ.value,10)||0;
+        const inicio = parseInt(pagIniQ.value,10)||0;
+        if(fim>inicio) extra.paginasExtra = { inicio, fim, catchUp: document.getElementById('endCatchUpChkQ').checked };
+      }
     }
     endActiveSession(extra);
     closeEndSessionModal(true);
     renderTimerBar();
     renderAll();
-    // Na revisao avaliada, o completeReview ja mostrou um toast com a proxima data.
-    if(!(a.tipo==='revisao' && qualidadeEscolhida)) toast('Sessão registrada ');
+    toast('Sessão registrada ');
   }
   document.getElementById('endSessionGo').addEventListener('click', finalizar);
   document.getElementById('endSessionOverlay').classList.add('show');
