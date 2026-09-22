@@ -4145,7 +4145,8 @@ function noteQuestionAnsweredInActiveSession(qid){
   }
 }
 function endActiveSession(extra){
-  // extra: { paginaFim } para teoria, ou { questoesCount, questoesCorrect } (fallback manual) para questoes
+  // extra: { paginaFim, exercicios:{count,correct,wrongNums} } para teoria, ou
+  // { questoesCount, questoesCorrect } (fallback manual) para questoes
   const a = state.activeSession;
   if(!a) return null;
   stopAlarmLoop(); // sessao encerrada nao deixa alarme tocando sozinho (ver ALARME SONORO DO CRONOMETRO)
@@ -4179,6 +4180,21 @@ function endActiveSession(extra){
     }
   }
   state.sessions.push(sessao); // conta pra todas as metricas gerais de tempo e pro Ciclo (cicloEstudadoSegundos etc.) independente de ter vindo do calendario e de ter batido os 30min ou nao - ver comentario abaixo
+  // 22/09/2026 (pedido do Bruno): "Seção de exercícios" ao encerrar uma sessão de TEORIA - cria
+  // uma sessao de questoes IRMA, sem tempo proprio (o cronometro mediu a leitura, nao os
+  // exercicios), pra contar no progresso da etapa de Exercicios (questoesFeitasManual) igual
+  // qualquer outra sessao de questoes registrada manualmente.
+  if(a.tipo==='teoria' && extra && extra.exercicios && extra.exercicios.count>0){
+    state.sessions.push({
+      id: uid(), materiaIdx: a.si, apostilaIdx: a.ai, tipo: 'questoes',
+      timestampInicio: Date.now(), timestampFim: Date.now(),
+      tempoLiquidoSegundos: 0,
+      paginas: null, questoesIds: null,
+      questoesManual: { count: extra.exercicios.count, correct: extra.exercicios.correct||0, wrongNums: extra.exercicios.wrongNums||[] },
+      origem: 'manual',
+      catchUp: false,
+    });
+  }
   state.activeSession = null;
   // ago/2026 (bug reportado pelo Bruno): antes, so a sessao nascida de um clique NUM BLOCO
   // especifico do Calendario da Semana marcava aquele bloco como concluido - uma sessao pela
@@ -4192,8 +4208,9 @@ function endActiveSession(extra){
   checkCicloCompletion();
   // 26/08/2026: sessao de questoes pode ter acabado de bater o total declarado manualmente
   // pra etapa de Exercicios (ver questoesFeitasManual) - roda a verificacao aqui tambem, nao
-  // so no quiz antigo, senao a etapa nunca fecharia sozinha nesse fluxo novo.
-  if(a.tipo==='questoes') verificarEtapaExercicios();
+  // so no quiz antigo, senao a etapa nunca fecharia sozinha nesse fluxo novo. Mesma verificacao
+  // vale pra sessao-irma de exercicios criada acima junto de uma sessao de teoria.
+  if(a.tipo==='questoes' || (extra && extra.exercicios && extra.exercicios.count>0)) verificarEtapaExercicios();
   return sessao;
 }
 function cancelActiveSession(){
@@ -8015,6 +8032,13 @@ function renderRevisao(){
   renderRevisaoStagesEditor();
   updateRevisaoBadge(); // qualquer caminho que redesenhe a aba tambem acerta a bolinha
   const wrap = document.getElementById('revisaoList');
+  // 22/09/2026 (bug reportado pelo Bruno): o <details> "Agenda de revisões" é recriado do zero
+  // a cada chamada (sempre nasce fechado - ver comentário abaixo) - inclusive quando o campo
+  // "Total de questões da apostila" dispara renderRevisao() no 'change'. Como o spinner nativo
+  // do input number (as setinhas/triângulos) dispara 'change' a cada clique, sem precisar tirar
+  // o foco, cada clique na seta fechava a agenda no meio do preenchimento. Guarda se já estava
+  // aberta ANTES de limpar o wrap, e reaplica no <details> novo depois de montado.
+  const agendaEstavaAberta = !!wrap.querySelector('details.card.recolhivel')?.open;
   wrap.innerHTML = "";
   const today = todayStr();
   const items = revisoesPendentes();
@@ -8037,6 +8061,7 @@ function renderRevisao(){
   card.className = 'card recolhivel';
   card.style.marginBottom = '16px';
   card.innerHTML = '<summary><h2>Agenda de revisões</h2><span class="marcador" aria-hidden="true"></span></summary>';
+  card.open = agendaEstavaAberta;
   wrap.appendChild(card);
 
   function group(title, arr, cls){
@@ -10722,7 +10747,11 @@ function openEndSessionModal(){
           <input type="checkbox" id="endCatchUpChk" style="margin-top:3px;">
           <span>Revisão rápida — já vi esse conteúdo antes<br><span style="font-size:.74rem; color:var(--text-mut);">Conta tempo de estudo e marca a aula como concluída, mas não conta no ritmo de páginas/dia.</span></span>
         </label>
-      </div>`;
+      </div>
+      <div class="form-row">
+        <button type="button" class="btn sm ghost" id="endExercToggleBtn"><svg class=ic-svg aria-hidden=true><use href=#ic-pencil></use></svg> Seção de exercícios</button>
+      </div>
+      <div id="endExercBlock" style="display:none;"></div>`;
   } else {
     const autoCount = a.questoesIdsCollected.length;
     if(autoCount>0){
@@ -10755,6 +10784,49 @@ function openEndSessionModal(){
     body.querySelectorAll('.flag-num-btn').forEach(b=> b.addEventListener('click', atualizarPreview));
     atualizarPreview();
   }
+  // 22/09/2026 (pedido do Bruno): ao encerrar uma sessão de TEORIA, opção pra já registrar
+  // exercícios desta apostila junto - mesmo mecanismo (total declarado + marcar quais errou,
+  // acertos calculados sozinhos) já usado na etapa de Exercícios/sessão de questões avulsa, só
+  // que sem precisar abrir uma sessão à parte. Some pro progresso de Exercícios (Revisão) via
+  // uma sessão extra de questões criada em endActiveSession (ver extra.exercicios).
+  let endExercBlockEl = null;
+  if(a.tipo==='teoria'){
+    const exercBtn = document.getElementById('endExercToggleBtn');
+    endExercBlockEl = document.getElementById('endExercBlock');
+    function renderEndExercFields(){
+      const total = getAula(a.si,a.ai).questoesTotalManual||0;
+      endExercBlockEl.innerHTML = `
+        <div class="form-row"><label style="font-size:.72rem;">Total de questões da apostila</label><input type="number" min="0" id="endExercTotalInp" value="${total||''}" placeholder="0" style="width:80px;"></div>
+        <div class="form-row"><label>Quantas você resolveu agora</label><input type="number" id="endExercCount" value="0" min="0"></div>
+        <div style="font-size:.74rem; color:var(--text-mut); margin-bottom:12px;">Toque abaixo em quais errou - os acertos são calculados sozinhos.</div>
+        ${buildFlagsGridHtml(a.si, a.ai)}
+        <div class="form-row"><small id="endExercCorrectPreview" style="color:var(--text-mut);"></small></div>`;
+      wireFlagsGrid(endExercBlockEl);
+      const totalInp = document.getElementById('endExercTotalInp');
+      const countInp2 = document.getElementById('endExercCount');
+      const previewEl2 = document.getElementById('endExercCorrectPreview');
+      function atualizarPreviewExerc(){
+        const feitas = parseInt(countInp2.value,10)||0;
+        const erradas = endExercBlockEl.querySelectorAll('.flag-num-btn.flagged').length;
+        previewEl2.textContent = `Certas (calculado): ${Math.max(0,feitas-erradas)} · Erradas: ${erradas}`;
+      }
+      countInp2.addEventListener('input', atualizarPreviewExerc);
+      endExercBlockEl.querySelectorAll('.flag-num-btn').forEach(b=> b.addEventListener('click', atualizarPreviewExerc));
+      atualizarPreviewExerc();
+      // Mudar o total declarado aqui reflete na aba Revisão/Matérias tambem (mesmo campo,
+      // rec.questoesTotalManual) - e remonta a grade de números com o total novo.
+      totalInp.addEventListener('change', ()=>{
+        getAula(a.si,a.ai).questoesTotalManual = Math.max(0, parseInt(totalInp.value,10)||0);
+        save();
+        renderEndExercFields();
+      });
+    }
+    exercBtn.addEventListener('click', ()=>{
+      const abrindo = endExercBlockEl.style.display==='none';
+      endExercBlockEl.style.display = abrindo? '' : 'none';
+      if(abrindo && !endExercBlockEl.dataset.built){ renderEndExercFields(); endExercBlockEl.dataset.built='1'; }
+    });
+  }
 
   // Na sessao de revisao, os tres botoes funcionam como "encerrar avaliando": escolher
   // uma opcao ja fecha a sessao e da baixa na revisao de uma vez so.
@@ -10774,6 +10846,14 @@ function openEndSessionModal(){
     } else if(a.tipo==='teoria'){
       extra.paginaFim = parseInt(document.getElementById('endPagFim').value,10)||0;
       extra.catchUp = document.getElementById('endCatchUpChk').checked;
+      const exercCountInp = document.getElementById('endExercCount');
+      if(exercCountInp){
+        const count = parseInt(exercCountInp.value,10)||0;
+        if(count>0){
+          const erradasNesta = saveFlaggedErradas(a.si, a.ai, endExercBlockEl);
+          extra.exercicios = { count, wrongNums: erradasNesta, correct: Math.max(0, count-erradasNesta.length) };
+        }
+      }
     } else if(a.questoesIdsCollected.length===0){
       extra.questoesCount = parseInt(document.getElementById('endQCount').value,10)||0;
       const erradasNesta = saveFlaggedErradas(a.si, a.ai, body);
