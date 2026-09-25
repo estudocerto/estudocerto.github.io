@@ -563,6 +563,9 @@
   .acc-badge{font-size:.72rem; font-weight:800; padding:5px 9px; border-radius:20px; background:var(--yellow); color:#5a4600;}
 
   /* Review tab */
+  .rev-filtro-materia{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .rev-filtro-materia label{font-size:.78rem; color:var(--text-mut); font-weight:700;}
+  .rev-filtro-materia select{padding:7px 10px; border-radius:8px; border:1px solid var(--border); font-size:.82rem; background:var(--card); color:var(--text); font-weight:650; max-width:260px;}
   .rev-grp-title{font-size:.78rem; text-transform:uppercase; letter-spacing:.5px; color:var(--text-mut); font-weight:700; margin:18px 0 8px;}
   .rev-grp-title:first-child{margin-top:0;}
   .rev-item{
@@ -8044,6 +8047,9 @@ function rotuloData(iso, hoje){
 }
 // Mes atualmente exibido no calendario (null = mes de hoje). Guardado so em memoria.
 let revCalRef = null;
+// 25/09/2026 (pedido do Bruno): filtro por materia na Agenda de revisoes (Atrasadas/Hoje/
+// Proximos 7 dias/Mais adiante). Estado de tela, so em memoria - nao precisa persistir.
+let revFiltroMateria = '';
 
 function renderRevisao(){
   const tipCal = document.getElementById('tipCalendarioRevisao');
@@ -8074,9 +8080,21 @@ function renderRevisao(){
     wrap.innerHTML = '<div class="card"><div class="empty">Nenhuma revisão agendada.<br>Conclua a leitura da teoria de uma aula em "Matérias" para começar a fila de revisão.</div></div>';
     return;
   }
-  const overdue  = items.filter(i=>i.rec.nextReview<today).sort((a,b)=>a.rec.nextReview.localeCompare(b.rec.nextReview));
-  const dueToday = items.filter(i=>i.rec.nextReview===today);
-  const futuras  = items.filter(i=>i.rec.nextReview>today).sort((a,b)=>a.rec.nextReview.localeCompare(b.rec.nextReview));
+  // Lista de materias com pelo menos 1 item pendente, pra popular o filtro - sempre
+  // calculada a partir de TODOS os itens (nao dos ja filtrados), senao some do seletor
+  // assim que voce filtra. Se a materia selecionada nao tem mais nenhum item (ex.: voce
+  // acabou de concluir a ultima revisao atrasada dela), volta pra "Todas" sozinho.
+  const materiasComItens = [...new Set(items.map(i=>i.si))]
+    .map(si=>({ si, name: SUBJECTS[si].name }))
+    .sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+  if(revFiltroMateria!=='' && !materiasComItens.some(m=>String(m.si)===String(revFiltroMateria))){
+    revFiltroMateria = '';
+  }
+  const itemsFiltrados = revFiltroMateria==='' ? items : items.filter(i=>String(i.si)===String(revFiltroMateria));
+
+  const overdue  = itemsFiltrados.filter(i=>i.rec.nextReview<today).sort((a,b)=>a.rec.nextReview.localeCompare(b.rec.nextReview));
+  const dueToday = itemsFiltrados.filter(i=>i.rec.nextReview===today);
+  const futuras  = itemsFiltrados.filter(i=>i.rec.nextReview>today).sort((a,b)=>a.rec.nextReview.localeCompare(b.rec.nextReview));
   const in7 = addDays(today,7);
   const semana = futuras.filter(i=>i.rec.nextReview<=in7);
   const depois = futuras.filter(i=>i.rec.nextReview>in7);
@@ -8090,6 +8108,24 @@ function renderRevisao(){
   card.innerHTML = '<summary><h2>Agenda de revisões</h2><span class="marcador" aria-hidden="true"></span></summary>';
   card.open = agendaEstavaAberta;
   wrap.appendChild(card);
+
+  // Filtro por materia: vale pra todas as secoes abaixo (Atrasadas, Hoje, Proximos 7 dias,
+  // Mais adiante) - so aparece quando ha mais de 1 materia com item pendente (com 1 so, filtrar
+  // nao muda nada).
+  if(materiasComItens.length>1){
+    const filtroWrap = document.createElement('div');
+    filtroWrap.className = 'rev-filtro-materia';
+    filtroWrap.innerHTML = `<label for="revFiltroMateriaSel">Matéria</label>
+      <select id="revFiltroMateriaSel">
+        <option value="">Todas</option>
+        ${materiasComItens.map(m=>`<option value="${m.si}"${String(m.si)===String(revFiltroMateria)?' selected':''}>${escapeHtml(m.name)}</option>`).join('')}
+      </select>`;
+    card.appendChild(filtroWrap);
+    filtroWrap.querySelector('#revFiltroMateriaSel').addEventListener('change', function(){
+      revFiltroMateria = this.value;
+      renderRevisao();
+    });
+  }
 
   function group(title, arr, cls){
     if(arr.length===0) return;
