@@ -3755,8 +3755,12 @@ function save(){
   // marca que este aparelho tem uma mudança que a nuvem ainda não confirmou receber -
   // usado pra detectar conflito real (ver syncRun/syncHandleConflict mais abaixo).
   if(typeof syncSchedulePush==='function'){
-    _syncLocalDirty = true;
-    try{ localStorage.setItem('estudo-certo-sync-localedit', new Date().toISOString()); }catch(e){}
+    // 27/09/2026: ajustes automaticos da abertura (bootApp) nao sao edicao do usuario - se
+    // contassem, um aparelho desatualizado "venceria" a mesclagem so por ter acabado de abrir.
+    if(!_syncManutencao){
+      _syncLocalDirty = true;
+      try{ localStorage.setItem('estudo-certo-sync-localedit', new Date().toISOString()); }catch(e){}
+    }
     syncSchedulePush();
   }
 }
@@ -9181,6 +9185,7 @@ const SYNC_LOCAL_EDIT_KEY = 'estudo-certo-sync-localedit'; // quando este aparel
 // declarada com "var" (não "let") de propósito: save() já referencia essa variável e é
 // definida bem antes desta linha no arquivo - "var" evita erro de "temporal dead zone".
 var _syncLocalDirty = false; // true = este aparelho tem alteração ainda não confirmada como recebida na nuvem
+var _syncManutencao = false; // true durante os ajustes automaticos da abertura (ver bootApp) - save() nao marca edicao
 function syncProjectConfig(){
   try{ return JSON.parse(localStorage.getItem(SYNC_PROJECT_KEY)||'null'); }catch(e){ return null; }
 }
@@ -9267,10 +9272,32 @@ async function syncFetchCloud(){
   const rows = await res.json();
   return (rows && rows[0]) || null;
 }
-async function syncPushCloud(){
+// A nuvem mudou desde a ultima vez que ESTE aparelho sincronizou? Compara por igualdade (e nao
+// "mais novo que"): o updated_at gravado e sempre o valor exato que este aparelho enviou ou
+// adotou, entao qualquer diferenca significa que outro aparelho escreveu - independe de relogio.
+function syncNuvemMudou(cloudUpdatedAt){
+  const localTs = syncGetLastSyncedAt();
+  if(!localTs) return true;
+  return new Date(cloudUpdatedAt).getTime() !== new Date(localTs).getTime();
+}
+async function syncPushCloud(forcar){
   const token = await syncEnsureValidToken(); if(!token) return false;
   const session = syncSession(); if(!session) return false;
   const cfg = syncEffectiveProjectConfig();
+  // 27/09/2026: antes o envio sobrescrevia a nuvem inteira sem conferir nada - uma aba esquecida
+  // aberta por dias apagava o que outro aparelho tinha feito. Agora, se a nuvem mudou desde a
+  // ultima sincronizacao deste aparelho, nao envia: mescla primeiro (syncRun), e a propria
+  // mesclagem envia o resultado (com forcar=true, ja que acabou de ler a nuvem).
+  if(!forcar){
+    const resCheck = await fetch(cfg.url.replace(/\/$/,'') + '/rest/v1/progress?select=updated_at', { headers: { apikey:cfg.key, Authorization:'Bearer '+token } });
+    if(!resCheck.ok) throw new Error('Supabase GET falhou: HTTP '+resCheck.status);
+    const rowsCheck = await resCheck.json();
+    const cloudTs = rowsCheck && rowsCheck[0] && rowsCheck[0].updated_at;
+    if(cloudTs && syncNuvemMudou(cloudTs)){
+      await syncRun();
+      return true;
+    }
+  }
   const url = cfg.url.replace(/\/$/,'') + '/rest/v1/progress?on_conflict=user_id';
   const nowIso = new Date().toISOString();
   const res = await fetch(url, {
@@ -9336,7 +9363,8 @@ async function syncApplyCloudRow(row){
   // fazer este aparelho se achar "mais recente" numa comparacao futura sem ter editado nada de
   // verdade desde entao (ver mergeStates/localMaisRecente).
   try{ localStorage.removeItem(SYNC_LOCAL_EDIT_KEY); }catch(e){}
-  renderAll();
+  _syncManutencao = true; // ajustes automaticos sobre o estado recem-adotado nao sao edicao (ver save)
+  try{ renderAll(); } finally { _syncManutencao = false; }
 }
 // Resumo simples e legível do que cada lado tem — usado só no toast pós-mesclagem
 // (ver mergeStates/syncHandleConflict logo abaixo), pra dar uma ideia do que veio de onde.
@@ -9479,7 +9507,12 @@ function mergeStates(localStateRaw, cloudStateRaw, cloudUpdatedAtIso){
     const rl = (localState.aulas||{})[k], rc = (cloudState.aulas||{})[k];
     const partes = k.split('|'); const si = parseInt(partes[0],10), ai = parseInt(partes[1],10);
     const reviewHistory = _mergeArraysById(rl&&rl.reviewHistory, rc&&rc.reviewHistory).sort((a,b)=> (a.d||'').localeCompare(b.d||''));
-    const rec = {
+    // 27/09/2026 (bug real: sumiram questoesTotalManual de 30 apostilas e questoesErradas de 24):
+    // o rec era remontado so com a lista fixa de campos abaixo, descartando qualquer outro. Agora
+    // parte de TODOS os campos dos dois lados (o lado base vence onde os dois tem o campo) e so
+    // entao sobrescreve os que tem regra propria de mesclagem.
+    const rBase = localMaisRecente ? rl : rc, rOutro = localMaisRecente ? rc : rl;
+    const rec = Object.assign({}, rOutro||{}, rBase||{}, {
       studied: !!((rl&&rl.studied) || (rc&&rc.studied)),
       studiedDate: (rl&&rl.studiedDate && rc&&rc.studiedDate) ? (rl.studiedDate<rc.studiedDate?rl.studiedDate:rc.studiedDate) : ((rl&&rl.studiedDate)||(rc&&rc.studiedDate)||null),
       stage: Math.max((rl&&rl.stage)||0, (rc&&rc.stage)||0),
@@ -9487,7 +9520,7 @@ function mergeStates(localStateRaw, cloudStateRaw, cloudUpdatedAtIso){
       attempts: 0, correct: 0, // campos legados do rec, nunca usados (ver getAula) - mantidos so por forma
       pagesRead: Math.max((rl&&rl.pagesRead)||0, (rc&&rc.pagesRead)||0, !isNaN(si) ? Math.min(theoryPages(si,ai), Math.max(0,somaPorAula[k]||0)) : 0),
       reviewHistory: reviewHistory.length>40 ? reviewHistory.slice(-40) : reviewHistory,
-    };
+    });
     const naoExercicios = reviewHistory.filter(h=> h.q!=='exercicios');
     rec.dificuldade = naoExercicios.length ? naoExercicios[naoExercicios.length-1].q : ((rl&&rl.dificuldade)||(rc&&rc.dificuldade)||null);
     rec.lastReview = reviewHistory.length ? reviewHistory[reviewHistory.length-1].d
@@ -9540,7 +9573,7 @@ async function syncHandleConflict(row){
   state = merged;
   if(typeof _metricasVersion==='number') _metricasVersion++; // invalida caches do Metricas (mesmo que save() faria)
   localStorage.setItem(STORE_KEY, JSON.stringify(state));
-  await syncPushCloud();
+  await syncPushCloud(true); // acabou de ler e mesclar a nuvem - envia sem nova conferencia (evita laco)
   renderAll();
   const cDepois = syncCountsSummary(state);
   const ganhoSessoes = cDepois.sessoes - cLocalAntes.sessoes;
@@ -9553,12 +9586,11 @@ async function syncRun(){
     const row = await syncFetchCloud();
     if(!row){
       // conta nova (sem dados na nuvem ainda): manda o que ja existe neste aparelho
-      await syncPushCloud();
+      await syncPushCloud(true);
       syncRenderStatus('synced');
       return;
     }
-    const localTs = syncGetLastSyncedAt();
-    if(!localTs || new Date(row.updated_at) > new Date(localTs)){
+    if(syncNuvemMudou(row.updated_at)){
       if(_syncLocalDirty){
         // Os dois lados mudaram desde a última sincronização confirmada - conflito de
         // verdade, não decide sozinho.
@@ -9666,7 +9698,8 @@ if(uploadApostilasInput && btnUploadApostilas){
 if(syncEnabled()){
   const pc = syncProjectConfig();
   if(pc){ document.getElementById('syncUrl').value = pc.url; document.getElementById('syncKey').value = pc.key; }
-  syncRun();
+  // a primeira sincronizacao agora e disparada pelo authBoot, ANTES do bootApp (ver
+  // syncRunAntesDoBoot) - chamar aqui tambem fazia as duas correrem em paralelo.
 } else {
   const pc = syncProjectConfig();
   document.getElementById('syncUrl').value = (pc && pc.url) || SUPABASE_URL_DEFAULT;
@@ -11905,11 +11938,23 @@ document.addEventListener('keydown', e=>{
    guardado no localStorage (poderia estar expirado, revogado ou forjado).
    Sem sessão válida, quem abre o link ou digita o endereço só vê o portão. */
 function bootApp(){
-  // Fecha a etapa de exercícios de quem já tinha respondido todas as questões antes dessa
-  // etapa existir (ou respondeu fora do app), em silêncio, antes da primeira renderização.
-  verificarEtapaExercicios(true);
-  renderAll();
+  _syncManutencao = true;
+  try{
+    // Fecha a etapa de exercícios de quem já tinha respondido todas as questões antes dessa
+    // etapa existir (ou respondeu fora do app), em silêncio, antes da primeira renderização.
+    verificarEtapaExercicios(true);
+    renderAll();
+  } finally {
+    _syncManutencao = false;
+  }
   maybeShowOnboarding();
+}
+// 27/09/2026 (bug real: aparelho velho/novo sobrescreveu ciclo, calendario e totais de questoes
+// na nuvem): a abertura agora baixa a nuvem ANTES de rodar os ajustes automaticos, pra eles rodarem
+// sobre o estado atual e nao sobre a copia velha guardada no aparelho. Sem internet, nao trava o
+// app: depois de 8s segue com o que tem local.
+function syncRunAntesDoBoot(){
+  return Promise.race([ syncRun(), new Promise(r=>setTimeout(r, 8000)) ]);
 }
 function hideAuthGate(){
   const gate = document.getElementById('authGate');
@@ -11940,9 +11985,9 @@ async function authGateSignInClick(){
     const body = await syncSignIn(email, password);
     if(!body.access_token) throw new Error('Não foi possível entrar.');
     syncSaveSessionFromAuthResponse(body);
+    await syncRunAntesDoBoot();
     hideAuthGate();
     bootApp();
-    syncRun();
   }catch(e){
     msgEl.textContent = 'Não consegui entrar: ' + (e.message||'confira e-mail e senha.');
   }finally{
@@ -11961,9 +12006,9 @@ async function authGateSignUpClick(){
     const body = await syncSignUp(email, password);
     if(body.access_token){
       syncSaveSessionFromAuthResponse(body);
+      await syncRunAntesDoBoot();
       hideAuthGate();
       bootApp();
-      syncRun();
     } else {
       msgEl.style.color = 'var(--green-dark, inherit)';
       msgEl.textContent = 'Conta criada! Se o projeto exigir confirmação por e-mail, confirme e depois clique em "Entrar".';
@@ -11983,6 +12028,7 @@ document.getElementById('authGatePassword').addEventListener('keydown', e=>{ if(
   if(syncEnabled()){
     const token = await syncEnsureValidToken();
     if(token && await authVerifyServer(token)){
+      await syncRunAntesDoBoot();
       hideAuthGate();
       bootApp();
       return;
